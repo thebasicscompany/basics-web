@@ -1,7 +1,6 @@
 import "server-only";
 import type { Session, SessionEvent } from "@basics/contracts";
-import type { TutorEventDraft } from "@basics/harness";
-import { appendSessionEvents } from "@basics/db";
+import { persistTurnEvents, type TutorEventDraft } from "@basics/harness";
 import { db } from "@/lib/db";
 import { createId } from "@/lib/ids";
 import { toSession, toSessionEvent } from "@/lib/serializers";
@@ -16,8 +15,7 @@ export async function appendEvents(
   sessionId: string,
   drafts: TutorEventDraft[],
 ): Promise<SessionEvent[]> {
-  const rows = await appendSessionEvents(db, context, sessionId, drafts);
-  return rows.map(toSessionEvent);
+  return persistTurnEvents(db, context, sessionId, drafts);
 }
 
 export async function getOwnedSession(
