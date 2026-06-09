@@ -23,6 +23,9 @@ importers:
       '@basics/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@basics/harness':
+        specifier: workspace:*
+        version: link:../../packages/harness
       '@livekit/agents':
         specifier: ^1.4.3
         version: 1.4.5(@livekit/rtc-node@0.13.29)(typescript@5.9.3)(zod@3.25.76)

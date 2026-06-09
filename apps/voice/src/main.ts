@@ -12,15 +12,19 @@ import {
 } from "@livekit/agents";
 import * as livekit from "@livekit/agents-plugin-livekit";
 import * as silero from "@livekit/agents-plugin-silero";
-import { RoomEvent } from "@livekit/rtc-node";
+import { RoomEvent, type Room } from "@livekit/rtc-node";
 import { config as loadEnv } from "dotenv";
+import { createPrismaClient, type BasicsPrismaClient } from "@basics/db";
 import {
-  appendSessionEvents,
-  createPrismaClient,
-  serializeSessionEvent,
-} from "@basics/db";
-import { buildInstructions } from "./instructions";
-import { SKETCH_DATA_TOPIC, createTutorTools } from "./tools";
+  SKETCH_DATA_TOPIC,
+  getKindConfig,
+  loadSessionContext,
+  persistTurnEvents,
+  topicForEventType,
+  type EventStoreContext,
+  type ToolDefinition,
+  type ToolSessionContext,
+} from "@basics/harness";
 
 // Secrets come from Doppler (`doppler run`); the .env files are a fallback
 // for environments without the Doppler CLI and never override process env.
@@ -32,6 +36,63 @@ export const AGENT_NAME = "basics-tutor";
 
 function createSegmentId(): string {
   return `segment_${crypto.randomUUID().replaceAll("-", "")}`;
+}
+
+/**
+ * Binds the harness's pure tool definitions to LiveKit: each call persists
+ * the produced event drafts to the session log, then broadcasts the durable
+ * events to the room on the matching data topic.
+ */
+function bindLiveKitTools(
+  definitions: ToolDefinition[],
+  deps: {
+    db: BasicsPrismaClient;
+    room: Room;
+    storeContext: EventStoreContext;
+    toolContext: ToolSessionContext;
+  },
+): llmTypes.ToolContext {
+  const encoder = new TextEncoder();
+  const tools: llmTypes.ToolContext = {};
+
+  for (const definition of definitions) {
+    tools[definition.name] = llmTypes.tool({
+      description: definition.description,
+      parameters: definition.parameters,
+      execute: async (args) => {
+        const drafts = definition.toDrafts(args, deps.toolContext);
+        const events = await persistTurnEvents(
+          deps.db,
+          deps.storeContext,
+          deps.toolContext.sessionId,
+          drafts,
+        );
+
+        const byTopic = new Map<string, typeof events>();
+        for (const event of events) {
+          const topic = topicForEventType(event.type);
+          const group = byTopic.get(topic);
+          if (group) {
+            group.push(event);
+          } else {
+            byTopic.set(topic, [event]);
+          }
+        }
+
+        for (const [topic, group] of byTopic) {
+          const payload = encoder.encode(JSON.stringify({ events: group }));
+          await deps.room.localParticipant?.publishData(payload, {
+            reliable: true,
+            topic,
+          });
+        }
+
+        return definition.resultText(args);
+      },
+    });
+  }
+
+  return tools;
 }
 
 /**
@@ -79,69 +140,30 @@ export default defineAgent<{ vad: silero.VAD }>({
     }
 
     const db = createPrismaClient();
-    const sessionRow = await db.session.findUniqueOrThrow({
-      where: { id: sessionId },
-      include: { lesson: true, course: true },
-    });
-    const priorEventRows = await db.sessionEvent.findMany({
-      where: { sessionId },
-      orderBy: { sequence: "asc" },
-    });
-    const priorEvents = priorEventRows.map(serializeSessionEvent);
+    const sessionContext = await loadSessionContext(db, sessionId);
+    const { session } = sessionContext;
+    const config = getKindConfig(sessionContext.kind);
 
-    const tools = createTutorTools({
+    const storeContext: EventStoreContext = {
+      learnerId: session.learnerId,
+      workspaceId: session.workspaceId ?? "",
+    };
+
+    const tools = bindLiveKitTools(config.tools, {
       db,
       room: ctx.room,
-      sessionId,
-      learnerId: sessionRow.learnerId,
-      workspaceId: sessionRow.workspaceId ?? "",
-      lessonId: sessionRow.lessonId ?? undefined,
-      courseId: sessionRow.courseId ?? undefined,
+      storeContext,
+      toolContext: {
+        sessionId,
+        learnerId: session.learnerId,
+        workspaceId: session.workspaceId,
+        courseId: session.courseId,
+        lessonId: session.lessonId,
+      },
     });
 
     const agent = new TutorAgent({
-      instructions: buildInstructions({
-        lesson: sessionRow.lesson
-          ? {
-              id: sessionRow.lesson.id,
-              courseId: sessionRow.lesson.courseId,
-              slug: sessionRow.lesson.slug,
-              title: sessionRow.lesson.title,
-              summary: sessionRow.lesson.summary ?? undefined,
-              orderIndex: sessionRow.lesson.orderIndex,
-              objectives: sessionRow.lesson.objectives,
-              conceptKeys: sessionRow.lesson.conceptKeys,
-              estimatedMinutes: sessionRow.lesson.estimatedMinutes ?? undefined,
-              status: sessionRow.lesson.status as "draft" | "ready" | "archived",
-              createdAt: sessionRow.lesson.createdAt.toISOString(),
-              updatedAt: sessionRow.lesson.updatedAt.toISOString(),
-            }
-          : null,
-        course: sessionRow.course
-          ? {
-              id: sessionRow.course.id,
-              slug: sessionRow.course.slug,
-              title: sessionRow.course.title,
-              description: sessionRow.course.description ?? undefined,
-              level: sessionRow.course.level as
-                | "introductory"
-                | "beginner"
-                | "intermediate"
-                | "advanced"
-                | undefined,
-              tags: sessionRow.course.tags,
-              moduleIds: [],
-              lessonIds: [],
-              status: sessionRow.course.status as
-                | "draft"
-                | "active"
-                | "archived",
-              createdAt: sessionRow.course.createdAt.toISOString(),
-              updatedAt: sessionRow.course.updatedAt.toISOString(),
-            }
-          : null,
-        priorEvents,
-      }),
+      instructions: config.buildPrompt(sessionContext, "voice"),
       tools,
     });
 
@@ -165,7 +187,7 @@ export default defineAgent<{ vad: silero.VAD }>({
       },
     );
 
-    const session = new voice.AgentSession({
+    const voiceSession = new voice.AgentSession({
       stt: new inference.STT({ model: "deepgram/nova-3", language: "multi" }),
       llm: new inference.LLM({ model: "openai/gpt-4.1" }),
       tts: new inference.TTS({
@@ -183,24 +205,19 @@ export default defineAgent<{ vad: silero.VAD }>({
     // Persist every finalized conversation item to the session event log so
     // the lesson transcript and whiteboard rehydrate after reload.
     const pendingTranscriptWrites = new Set<Promise<unknown>>();
-    session.on(voice.AgentSessionEventTypes.ConversationItemAdded, (event) => {
-      const item = event.item;
-      if (item.type !== "message") {
-        return;
-      }
-      const text = item.textContent;
-      if (!text || (item.role !== "assistant" && item.role !== "user")) {
-        return;
-      }
+    voiceSession.on(
+      voice.AgentSessionEventTypes.ConversationItemAdded,
+      (event) => {
+        const item = event.item;
+        if (item.type !== "message") {
+          return;
+        }
+        const text = item.textContent;
+        if (!text || (item.role !== "assistant" && item.role !== "user")) {
+          return;
+        }
 
-      const write = appendSessionEvents(
-        db,
-        {
-          learnerId: sessionRow.learnerId,
-          workspaceId: sessionRow.workspaceId ?? "",
-        },
-        sessionId,
-        [
+        const write = persistTurnEvents(db, storeContext, sessionId, [
           {
             type: "transcript.utterance",
             speaker: item.role === "assistant" ? "tutor" : "learner",
@@ -209,13 +226,13 @@ export default defineAgent<{ vad: silero.VAD }>({
             text,
             isFinal: true,
           },
-        ],
-      ).catch((error: unknown) => {
-        console.error("Failed to persist transcript event", error);
-      });
-      pendingTranscriptWrites.add(write);
-      void write.finally(() => pendingTranscriptWrites.delete(write));
-    });
+        ]).catch((error: unknown) => {
+          console.error("Failed to persist transcript event", error);
+        });
+        pendingTranscriptWrites.add(write);
+        void write.finally(() => pendingTranscriptWrites.delete(write));
+      },
+    );
 
     // Don't lose the tail of the transcript when the session ends: wait for
     // in-flight writes before the worker process exits.
@@ -223,15 +240,15 @@ export default defineAgent<{ vad: silero.VAD }>({
       await Promise.allSettled([...pendingTranscriptWrites]);
     });
 
-    await session.start({
+    await voiceSession.start({
       agent,
       room: ctx.room,
     });
 
-    const hasHistory = priorEvents.some(
+    const hasHistory = sessionContext.events.some(
       (event) => event.type === "transcript.utterance",
     );
-    session.generateReply({
+    voiceSession.generateReply({
       instructions: hasHistory
         ? "Welcome the learner back to the lesson in one short sentence, briefly recall where you left off, and ask if they are ready to continue."
         : "Greet the learner warmly in one short sentence, introduce the lesson topic, and ask an opening question to gauge what they already know.",

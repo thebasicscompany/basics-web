@@ -15,6 +15,7 @@
   "dependencies": {
     "@basics/contracts": "workspace:*",
     "@basics/db": "workspace:*",
+    "@basics/harness": "workspace:*",
     "@livekit/agents": "^1.4.3",
     "@livekit/agents-plugin-livekit": "^1.4.3",
     "@livekit/agents-plugin-silero": "^1.4.3",

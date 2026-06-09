@@ -72,13 +72,13 @@ tools.ts     tool definitions (zod schema + event-draft producer), pure;
 persist.ts   persistTurnEvents() — sequenced append (from web session-store)
 ```
 
-- [ ] `@basics/harness` gains a `@basics/db` dependency; `loadSessionContext`
+- [x] `@basics/harness` gains a `@basics/db` dependency; `loadSessionContext`
       replaces web's `buildTurnContext`/`loadSessionMaterials` and the
       voice worker's ad-hoc context assembly in `main.ts`
-- [ ] Merge `apps/voice/src/instructions.ts` (voice prompt) and
+- [x] Merge `apps/voice/src/instructions.ts` (voice prompt) and
       `packages/harness/src/prompt.ts` (chat prompt) into the kind+modality
       builder — currently two prompts that must agree but can drift
-- [ ] Move tool *definitions* out of `apps/voice/src/tools.ts`; the voice
+- [x] Move tool *definitions* out of `apps/voice/src/tools.ts`; the voice
       worker keeps only LiveKit bindings, chat runtime can now get tools too
 - [ ] **Single-path Mermaid visuals** (the one deliberate behavior change in
       the tool move): `whiteboard_add_diagram` (Mermaid) becomes the *only*
@@ -92,7 +92,7 @@ persist.ts   persistTurnEvents() — sequenced append (from web session-store)
       Mermaid. Render with `@tldraw/mermaid` (`createMermaidDiagram`, native
       editable shapes; we're on tldraw ^5.1) instead of the static-SVG-image
       path in `tldraw-board.tsx`
-- [ ] Rewire: web turn route + `turnStreamResponse` stay in web (transport);
+- [x] Rewire: web turn route + `turnStreamResponse` stay in web (transport);
       `apps/voice/src/main.ts` becomes connect + bind + run
 - [ ] **Verify: `smoke`, `smoke:chat`, `smoke:pages`, `smoke:uploads` pass**
       — pure refactor except the deliberate Mermaid-only visuals change
