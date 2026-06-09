@@ -6,7 +6,7 @@ import {
   type TutorStreamItem,
   type TutorTurnContext,
   type TutorTurnResult,
-} from "@basics/tutor";
+} from "@basics/harness";
 import { db } from "@/lib/db";
 import { createId } from "@/lib/ids";
 import type { LearnerContext } from "@/lib/learner";

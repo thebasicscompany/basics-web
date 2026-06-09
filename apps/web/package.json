@@ -21,7 +21,7 @@
     "@base-ui/react": "^1.5.0",
     "@basics/contracts": "workspace:*",
     "@basics/db": "workspace:*",
-    "@basics/tutor": "workspace:*",
+    "@basics/harness": "workspace:*",
     "@clerk/nextjs": "^7.2.5",
     "@livekit/components-react": "^2.0.0",
     "@livekit/protocol": "^1.46.6",

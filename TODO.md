@@ -47,7 +47,7 @@ the agent worker are usually already running in terminals — check first.
       it is the LiveKit voice worker, nothing more. Update workspace refs,
       turbo filters, dev scripts (`pnpm --filter @basics/voice dev`), and any
       Doppler project/config mapping pointed at the old path
-- [ ] Rename `packages/tutor` → `packages/harness`
+- [x] Rename `packages/tutor` → `packages/harness`
       (`@basics/tutor` → `@basics/harness`): the session runtime. "Tutor" is
       just one persona; the harness will also run intake and assessment
 

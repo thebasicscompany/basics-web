@@ -1,6 +1,6 @@
 import "server-only";
 import type { Session, SessionEvent } from "@basics/contracts";
-import type { TutorEventDraft } from "@basics/tutor";
+import type { TutorEventDraft } from "@basics/harness";
 import { appendSessionEvents } from "@basics/db";
 import { db } from "@/lib/db";
 import { createId } from "@/lib/ids";
