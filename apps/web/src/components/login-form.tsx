@@ -97,7 +97,9 @@ export function LoginForm({
     >
       <FieldGroup>
         <div className="flex flex-col items-center gap-2 text-center">
-          <h1 className="text-2xl font-bold">Welcome back</h1>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">
+            Welcome back
+          </h1>
           <p className="text-balance text-muted-foreground">
             Sign in to continue your lessons.
           </p>

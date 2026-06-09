@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { UIMessage } from "ai";
-import { ArrowDownIcon, DownloadIcon } from "lucide-react";
+import { ArrowDownIcon, DownloadSimpleIcon } from "@phosphor-icons/react";
 import type { ComponentProps } from "react";
 import { useCallback } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
@@ -162,7 +162,7 @@ export const ConversationDownload = ({
       variant="outline"
       {...props}
     >
-      {children ?? <DownloadIcon className="size-4" />}
+      {children ?? <DownloadSimpleIcon className="size-4" />}
     </Button>
   );
 };

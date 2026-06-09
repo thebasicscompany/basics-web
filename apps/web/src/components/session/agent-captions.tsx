@@ -26,7 +26,12 @@ export function AgentCaptions({
   const latest = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
       const message = messages[index];
-      if (!message.from?.isLocal && message.message.trim().length > 0) {
+      // Spoken agent output arrives as `agentTranscript` (lk.transcription);
+      // `userTranscript`/`chatMessage` are the learner's speech and typed chat.
+      if (
+        message.type === "agentTranscript" &&
+        message.message.trim().length > 0
+      ) {
         return message;
       }
     }
@@ -61,7 +66,7 @@ export function AgentCaptions({
       )}
     >
       {/* Bottom-anchored so overflow trims the oldest lines, keeping the tail visible. */}
-      <div className="bg-background/85 flex max-h-14 flex-col justify-end overflow-hidden rounded-xl border px-4 py-2 shadow-sm backdrop-blur">
+      <div className="bg-card/90 flex max-h-14 flex-col justify-end overflow-hidden rounded-xl border border-border/80 px-4 py-2 shadow-sm backdrop-blur">
         <p className="text-center text-sm leading-5">{latest.message}</p>
       </div>
     </div>

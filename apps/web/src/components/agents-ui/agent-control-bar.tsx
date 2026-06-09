@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { useChat } from '@livekit/components-react';
 import { Track } from 'livekit-client';
-import { Loader, MessageSquareTextIcon, SendHorizontal } from 'lucide-react';
+import { ChatTextIcon, CircleNotchIcon, PaperPlaneRightIcon } from '@phosphor-icons/react';
 import { motion, type MotionProps } from 'motion/react';
 
 import { cn } from '@/lib/utils';
@@ -36,10 +36,10 @@ const LK_TOGGLE_VARIANT_2 = [
   'data-[state=off]:border-border data-[state=off]:hover:border-foreground/12',
   'data-[state=off]:focus-visible:border-ring data-[state=off]:focus-visible:ring-foreground/12',
   'data-[state=off]:text-foreground data-[state=off]:hover:text-foreground data-[state=off]:focus:text-foreground',
-  'data-[state=on]:bg-blue-500/20 data-[state=on]:hover:bg-blue-500/30',
-  'data-[state=on]:border-blue-700/10 data-[state=on]:text-blue-700 data-[state=on]:ring-blue-700/30',
-  'data-[state=on]:focus-visible:border-blue-700/50',
-  'dark:data-[state=on]:bg-blue-500/20 dark:data-[state=on]:text-blue-300',
+  'data-[state=on]:bg-primary/12 data-[state=on]:hover:bg-primary/18',
+  'data-[state=on]:border-primary/15 data-[state=on]:text-primary data-[state=on]:ring-primary/30',
+  'data-[state=on]:focus-visible:border-primary/50',
+  'dark:data-[state=on]:bg-primary/20 dark:data-[state=on]:text-primary',
 ];
 
 const MOTION_PROPS: MotionProps = {
@@ -129,7 +129,7 @@ function AgentChatInput({ chatOpen, onSend = async () => {}, className }: AgentC
         onClick={handleButtonClick}
         className="self-end disabled:cursor-not-allowed"
       >
-        {isSending ? <Loader className="animate-spin" /> : <SendHorizontal />}
+        {isSending ? <CircleNotchIcon className="animate-spin" /> : <PaperPlaneRightIcon />}
       </Button>
     </div>
   );
@@ -289,8 +289,9 @@ export function AgentControlBar({
     <div
       aria-label="Voice assistant controls"
       className={cn(
-        'bg-background border-input/50 dark:border-muted flex flex-col border p-3 drop-shadow-md/3',
-        variant === 'livekit' ? 'rounded-[31px]' : 'rounded-lg',
+        'bg-card/95 flex flex-col border border-border/80 p-3 backdrop-blur',
+        'shadow-[0_1px_2px_0_rgb(0_0_0/0.05),0_8px_24px_-8px_rgb(0_0_0/0.12)]',
+        variant === 'livekit' ? 'rounded-2xl' : 'rounded-lg',
         className,
       )}
       {...props}
@@ -304,7 +305,6 @@ export function AgentControlBar({
         <AgentChatInput
           chatOpen={isChatOpen || isChatOpenUncontrolled}
           onSend={handleSendMessage}
-          className={cn(variant === 'livekit' && '[&_button]:rounded-full')}
         />
       </motion.div>
 
@@ -326,7 +326,7 @@ export function AgentControlBar({
               className={cn(
                 variant === 'livekit' && [
                   LK_TOGGLE_VARIANT_1,
-                  'rounded-full [&_button:first-child]:rounded-l-full [&_button:last-child]:rounded-r-full',
+                  'rounded-xl [&_button:first-child]:rounded-l-xl [&_button:last-child]:rounded-r-xl',
                 ],
               )}
             />
@@ -348,7 +348,7 @@ export function AgentControlBar({
               className={cn(
                 variant === 'livekit' && [
                   LK_TOGGLE_VARIANT_1,
-                  'rounded-full [&_button:first-child]:rounded-l-full [&_button:last-child]:rounded-r-full',
+                  'rounded-xl [&_button:first-child]:rounded-l-xl [&_button:last-child]:rounded-r-xl',
                 ],
               )}
             />
@@ -363,7 +363,7 @@ export function AgentControlBar({
               pressed={screenShareToggle.enabled}
               disabled={screenShareToggle.pending}
               onPressedChange={screenShareToggle.toggle}
-              className={cn(variant === 'livekit' && [LK_TOGGLE_VARIANT_2, 'rounded-full'])}
+              className={cn(variant === 'livekit' && [LK_TOGGLE_VARIANT_2, 'rounded-xl'])}
             />
           )}
 
@@ -379,10 +379,10 @@ export function AgentControlBar({
               }}
               className={agentTrackToggleVariants({
                 variant: variant === 'outline' ? 'outline' : 'default',
-                className: cn(variant === 'livekit' && [LK_TOGGLE_VARIANT_2, 'rounded-full']),
+                className: cn(variant === 'livekit' && [LK_TOGGLE_VARIANT_2, 'rounded-xl']),
               })}
             >
-              <MessageSquareTextIcon />
+              <ChatTextIcon />
             </Toggle>
           )}
         </div>
@@ -392,13 +392,10 @@ export function AgentControlBar({
           <AgentDisconnectButton
             onClick={onDisconnect}
             disabled={!isConnected}
-            className={cn(
-              variant === 'livekit' &&
-                'bg-destructive/10 dark:bg-destructive/10 text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/20 focus:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/4 rounded-full font-mono text-xs font-bold tracking-wider',
-            )}
+            className={cn(variant === 'livekit' && 'rounded-xl')}
           >
-            <span className="hidden md:inline">END CALL</span>
-            <span className="inline md:hidden">END</span>
+            <span className="hidden md:inline">End lesson</span>
+            <span className="inline md:hidden">End</span>
           </AgentDisconnectButton>
         )}
       </div>

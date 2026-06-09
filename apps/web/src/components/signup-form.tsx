@@ -152,7 +152,9 @@ export function SignupForm({
     >
       <FieldGroup>
         <div className="flex flex-col items-center gap-2 text-center">
-          <h1 className="text-2xl font-bold">Create your account</h1>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">
+            Create your account
+          </h1>
           <p className="text-sm text-balance text-muted-foreground">
             {isVerifyingEmail
               ? "Enter the code we sent to your email."

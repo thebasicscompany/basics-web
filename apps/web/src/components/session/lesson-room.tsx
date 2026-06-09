@@ -10,7 +10,12 @@ import {
   useSessionContext,
   useSessionMessages,
 } from "@livekit/components-react";
-import { ArrowLeft, MessageSquareText, Mic, Pencil, X } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  ChatTextIcon,
+  PencilSimpleIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import type { Lesson, Session, SessionEvent } from "@basics/contracts";
 import { AgentChatTranscript } from "@/components/agents-ui/agent-chat-transcript";
 import { AgentControlBar } from "@/components/agents-ui/agent-control-bar";
@@ -190,10 +195,10 @@ function LessonStage({
               <Link href={lesson ? `/courses/${lesson.courseId}` : "/courses"} />
             }
           >
-            <ArrowLeft />
+            <ArrowLeftIcon />
           </Button>
           <div className="min-w-0">
-            <h1 className="truncate text-sm font-semibold">
+            <h1 className="truncate font-heading text-sm font-semibold tracking-tight">
               {lesson?.title ?? "Lesson"}
             </h1>
             {teachingState?.conceptFocus ? (
@@ -207,12 +212,21 @@ function LessonStage({
         <div className="pointer-events-auto flex items-center gap-2">
           {canDraw && session.isConnected ? (
             <Badge variant="secondary" className="gap-1">
-              <Pencil className="size-3" />
+              <PencilSimpleIcon className="size-3" />
               You can draw
             </Badge>
           ) : null}
           {session.isConnected ? (
-            <div className="bg-background/80 flex h-9 items-center rounded-full border px-3 backdrop-blur">
+            <div className="bg-card/85 flex h-8 items-center gap-1.5 rounded-lg border px-2.5 backdrop-blur">
+              <span
+                aria-hidden
+                className={cn(
+                  "size-1.5 rounded-full",
+                  agentState === "speaking" || agentState === "thinking"
+                    ? "animate-pulse bg-primary"
+                    : "bg-muted-foreground/50",
+                )}
+              />
               <span className="text-muted-foreground text-xs capitalize">
                 {agentState ?? "connecting"}
               </span>
@@ -224,7 +238,7 @@ function LessonStage({
             aria-label="Toggle transcript"
             onClick={() => setTranscriptOpen((open) => !open)}
           >
-            <MessageSquareText />
+            <ChatTextIcon />
           </Button>
         </div>
       </header>
@@ -250,14 +264,16 @@ function LessonStage({
         aria-hidden={!transcriptOpen}
       >
         <div className="flex items-center justify-between border-b px-4 py-3">
-          <h2 className="text-sm font-semibold">Transcript</h2>
+          <h2 className="font-heading text-sm font-semibold tracking-tight">
+            Transcript
+          </h2>
           <Button
             size="icon"
             variant="ghost"
             aria-label="Close transcript"
             onClick={() => setTranscriptOpen(false)}
           >
-            <X />
+            <XIcon />
           </Button>
         </div>
         <PastTranscript events={initialEvents} />
@@ -272,7 +288,9 @@ function LessonStage({
       {!session.isConnected ? (
         <div className="bg-background/70 absolute inset-0 z-40 flex items-center justify-center backdrop-blur-sm">
           <div className="mx-4 w-full max-w-md space-y-4 text-center">
-            <h2 className="text-xl font-semibold">{lesson?.title ?? "Lesson"}</h2>
+            <h2 className="font-heading text-2xl font-semibold tracking-tight">
+              {lesson?.title ?? "Lesson"}
+            </h2>
             {lesson?.summary ? (
               <p className="text-muted-foreground text-sm">{lesson.summary}</p>
             ) : null}
@@ -286,13 +304,7 @@ function LessonStage({
                 ))}
               </ul>
             ) : null}
-            <Button
-              size="lg"
-              onClick={startLesson}
-              disabled={isStarting}
-              className="gap-2"
-            >
-              <Mic />
+            <Button size="lg" onClick={startLesson} disabled={isStarting}>
               {isStarting ? "Connecting..." : "Start lesson"}
             </Button>
             <p className="text-muted-foreground text-xs">

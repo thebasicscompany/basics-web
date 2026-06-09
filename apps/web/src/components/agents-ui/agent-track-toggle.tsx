@@ -2,14 +2,14 @@ import { Fragment, type ComponentProps, useMemo, useState } from 'react';
 import { type VariantProps, cva } from 'class-variance-authority';
 import { Track } from 'livekit-client';
 import {
-  MicIcon,
-  MicOffIcon,
-  MonitorUpIcon,
-  MonitorOffIcon,
-  LoaderIcon,
-  VideoIcon,
-  VideoOffIcon,
-} from 'lucide-react';
+  MicrophoneIcon,
+  MicrophoneSlashIcon,
+  MonitorArrowUpIcon,
+  MonitorIcon,
+  CircleNotchIcon,
+  VideoCameraIcon,
+  VideoCameraSlashIcon,
+} from '@phosphor-icons/react';
 import { Toggle } from '@/components/ui/toggle';
 import { cn } from '@/lib/utils';
 
@@ -45,16 +45,16 @@ export const agentTrackToggleVariants = cva(['size-9'], {
 
 function getSourceIcon(source: Track.Source, enabled: boolean, pending = false) {
   if (pending) {
-    return LoaderIcon;
+    return CircleNotchIcon;
   }
 
   switch (source) {
     case Track.Source.Microphone:
-      return enabled ? MicIcon : MicOffIcon;
+      return enabled ? MicrophoneIcon : MicrophoneSlashIcon;
     case Track.Source.Camera:
-      return enabled ? VideoIcon : VideoOffIcon;
+      return enabled ? VideoCameraIcon : VideoCameraSlashIcon;
     case Track.Source.ScreenShare:
-      return enabled ? MonitorUpIcon : MonitorOffIcon;
+      return enabled ? MonitorArrowUpIcon : MonitorIcon;
     default:
       return Fragment;
   }

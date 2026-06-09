@@ -1,7 +1,7 @@
 "use client";
 
 import { useClerk, useUser } from "@clerk/nextjs";
-import { ChevronsUpDownIcon, LogOutIcon, UserIcon } from "lucide-react";
+import { CaretUpDownIcon, SignOutIcon, UserIcon } from "@phosphor-icons/react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -56,7 +56,7 @@ export function NavUser() {
               <span className="truncate font-medium">{name}</span>
               <span className="truncate text-xs">{email}</span>
             </div>
-            <ChevronsUpDownIcon className="ml-auto size-4" />
+            <CaretUpDownIcon className="ml-auto size-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="w-fit"
@@ -87,7 +87,7 @@ export function NavUser() {
             <DropdownMenuItem
               onClick={() => void signOut({ redirectUrl: "/sign-in" })}
             >
-              <LogOutIcon />
+              <SignOutIcon />
               Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>

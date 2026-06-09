@@ -8,15 +8,19 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        // Solid variants carry a subtle "bezel": vertical gradient over the
+        // fill, an inset top highlight, a border one step darker than the
+        // fill, and a tight drop shadow. Pressing flattens the bezel.
+        default:
+          "border-[color-mix(in_oklch,var(--primary),black_22%)] bg-primary bg-linear-to-b from-white/15 to-transparent text-primary-foreground shadow-[inset_0_1px_0_0_rgb(255_255_255/0.20),0_1px_2px_0_rgb(0_0_0/0.18)] hover:bg-[color-mix(in_oklch,var(--primary),white_7%)] active:bg-[color-mix(in_oklch,var(--primary),black_5%)] active:shadow-[inset_0_1px_2px_0_rgb(0_0_0/0.20)]",
         outline:
-          "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border-border bg-card text-foreground shadow-[inset_0_1px_0_0_rgb(255_255_255/0.80),0_1px_2px_0_rgb(0_0_0/0.05)] hover:bg-[color-mix(in_oklch,var(--card),var(--foreground)_3%)] active:shadow-[inset_0_1px_2px_0_rgb(0_0_0/0.06)] aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "border-[color-mix(in_oklch,var(--border),var(--foreground)_8%)] bg-secondary bg-linear-to-b from-white/60 to-transparent text-secondary-foreground shadow-[inset_0_1px_0_0_rgb(255_255_255/0.70),0_1px_2px_0_rgb(0_0_0/0.05)] hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_4%)] active:shadow-[inset_0_1px_2px_0_rgb(0_0_0/0.06)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:
-          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
+          "border-destructive/15 bg-destructive/10 text-destructive shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] hover:bg-destructive/20 active:shadow-[inset_0_1px_2px_0_rgb(0_0_0/0.06)] focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

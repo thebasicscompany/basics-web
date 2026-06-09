@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GraduationCapIcon, LibraryIcon } from "lucide-react";
+import { GraduationCapIcon, BooksIcon } from "@phosphor-icons/react";
 
 import { NavUser } from "@/components/nav-user";
 import {
@@ -17,6 +17,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 
 export type SidebarCourse = {
@@ -30,21 +31,26 @@ export function AppSidebar({ courses }: { courses: SidebarCourse[] }) {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link href="/courses" />}>
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <GraduationCapIcon className="size-4" />
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">Basics</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  Learn by talking it through
-                </span>
-              </div>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
+          <SidebarMenu className="min-w-0 flex-1">
+            <SidebarMenuItem>
+              <SidebarMenuButton size="lg" render={<Link href="/courses" />}>
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                  <GraduationCapIcon weight="fill" className="size-4" />
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-heading font-semibold tracking-tight">
+                    Basics
+                  </span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    Learn by talking it through
+                  </span>
+                </div>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+          <SidebarTrigger className="shrink-0 text-sidebar-foreground/60 hover:text-sidebar-foreground" />
+        </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -56,7 +62,9 @@ export function AppSidebar({ courses }: { courses: SidebarCourse[] }) {
                   isActive={pathname === "/courses"}
                   render={<Link href="/courses" />}
                 >
-                  <LibraryIcon />
+                  <BooksIcon
+                    weight={pathname === "/courses" ? "fill" : "regular"}
+                  />
                   <span>All courses</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
