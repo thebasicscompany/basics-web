@@ -5,20 +5,21 @@ import type {
   SessionEvent,
   SessionEventDraft,
 } from "@basics/contracts";
+import type { SessionKind } from "./kinds";
+import type { SessionMaterial } from "./context";
 
 /** A session event draft awaiting envelope assignment by the event store. */
 export type TutorEventDraft = SessionEventDraft;
 
 /** Learner-provided material (e.g. an uploaded document) usable in a turn. */
-export type TutorMaterial = {
-  label: string;
-  text: string;
-};
+export type TutorMaterial = SessionMaterial;
 
 export type TutorTurnContext = {
   session: Session;
   events: SessionEvent[];
   learnerText: string;
+  /** Derived from the session when omitted (see `sessionKindOf`). */
+  kind?: SessionKind;
   course?: Course;
   lesson?: Lesson;
   materials?: TutorMaterial[];
@@ -60,8 +61,6 @@ export interface TutorRuntime {
     input: TutorResumeInput,
   ): AsyncGenerator<TutorStreamItem, TutorTurnResult>;
 }
-
-export const WHITEBOARD_SURFACE_ID = "lesson-stage";
 
 export function createNamespacedId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
