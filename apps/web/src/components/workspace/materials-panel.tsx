@@ -8,13 +8,18 @@ import {
   FilePdfIcon,
   FileTextIcon,
   ImageIcon,
+  MagnifyingGlassIcon,
   TrashIcon,
   UploadSimpleIcon,
 } from "@phosphor-icons/react";
 
-import type { WorkspaceMaterial } from "@/components/workspace/workspace-tabs";
 import { Button } from "@/components/ui/button";
-import { deleteMaterial, uploadMaterial } from "@/lib/upload-client";
+import { Input } from "@/components/ui/input";
+import {
+  deleteMaterial,
+  uploadMaterial,
+  type UploadedMaterial,
+} from "@/lib/upload-client";
 import { cn } from "@/lib/utils";
 
 function MaterialIcon({ mimeType }: { mimeType: string | null }) {
@@ -46,19 +51,19 @@ function formatSize(size: number | null): string {
 export function MaterialsPanel({
   courseId,
   initialMaterials,
-  filter,
 }: {
   courseId: string;
-  initialMaterials: WorkspaceMaterial[];
-  filter: string;
+  initialMaterials: UploadedMaterial[];
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [materials, setMaterials] = useState(initialMaterials);
+  const [query, setQuery] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [chattingId, setChattingId] = useState<string | null>(null);
 
   async function handleFiles(files: FileList | File[]) {
     const list = Array.from(files);
@@ -97,9 +102,34 @@ export function MaterialsPanel({
     }
   }
 
-  const visible = filter
+  async function handleChatAbout(materialId: string) {
+    setChattingId(materialId);
+    setError(null);
+    try {
+      const response = await fetch(`/api/courses/${courseId}/chats`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ contextSourceIds: [materialId] }),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to start a chat.");
+      }
+      const { session } = (await response.json()) as {
+        session: { id: string };
+      };
+      router.push(`/courses/${courseId}/chats/${session.id}`);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Failed to start a chat.",
+      );
+      setChattingId(null);
+    }
+  }
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const visible = normalizedQuery
     ? materials.filter((material) =>
-        material.label.toLowerCase().includes(filter),
+        material.label.toLowerCase().includes(normalizedQuery),
       )
     : materials;
 
@@ -147,29 +177,59 @@ export function MaterialsPanel({
         />
       </div>
 
+      {materials.length > 0 ? (
+        <div className="relative">
+          <MagnifyingGlassIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Filter materials..."
+            className="h-8 pl-8"
+          />
+        </div>
+      ) : null}
+
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       {visible.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-1 rounded-xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
-          <p>{filter ? "No materials match your filter." : "No materials yet."}</p>
-          {!filter ? (
+          <p>
+            {normalizedQuery
+              ? "No materials match your filter."
+              : "No materials yet."}
+          </p>
+          {!normalizedQuery ? (
             <p>Your tutor uses what you upload to tailor lessons to you.</p>
           ) : null}
         </div>
       ) : (
         <div className="divide-y rounded-xl border bg-card">
           {visible.map((material) => (
-            <div
-              key={material.id}
-              className="flex items-center gap-3 px-4 py-3"
-            >
+            <div key={material.id} className="flex items-center gap-3 px-4 py-3">
               <MaterialIcon mimeType={material.mimeType} />
-              <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                {material.label}
-              </span>
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {formatSize(material.size)}
-              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{material.label}</p>
+                <p className="text-xs text-muted-foreground">
+                  {[
+                    formatSize(material.size),
+                    new Date(material.createdAt).toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                    }),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0"
+                disabled={chattingId === material.id}
+                onClick={() => void handleChatAbout(material.id)}
+              >
+                {chattingId === material.id ? "Starting..." : "Chat about this"}
+              </Button>
               <Button
                 size="icon-sm"
                 variant="ghost"

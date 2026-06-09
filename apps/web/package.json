@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "smoke": "doppler run -- tsx scripts/smoke-turn.ts",
     "smoke:chat": "doppler run -- tsx scripts/smoke-chat.ts",
+    "smoke:pages": "doppler run -- tsx scripts/smoke-pages.ts",
     "smoke:uploads": "doppler run -- tsx scripts/smoke-uploads.ts",
     "smoke:livekit": "doppler run -- tsx scripts/smoke-livekit.ts"
   },

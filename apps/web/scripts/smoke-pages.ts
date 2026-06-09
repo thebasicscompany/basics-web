@@ -66,7 +66,7 @@ async function main() {
     "/",
     "/courses",
     `/courses/${course.id}`,
-    `/courses/${course.id}?tab=materials`,
+    `/courses/${course.id}/materials`,
     ...(chat
       ? [
           `/courses/${course.id}/chats/${chat.id}`,

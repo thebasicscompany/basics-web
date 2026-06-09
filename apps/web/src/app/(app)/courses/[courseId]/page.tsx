@@ -3,13 +3,11 @@ import { notFound } from "next/navigation";
 
 import { WorkspaceComposer } from "@/components/chat/workspace-composer";
 import {
-  WorkspaceTabs,
-  type WorkspaceMaterial,
-  type WorkspaceSection,
-} from "@/components/workspace/workspace-tabs";
+  Syllabus,
+  type SyllabusSection,
+} from "@/components/workspace/syllabus";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
-import { getRecentChats } from "@/lib/enrollments";
 import { requireLearnerContext } from "@/lib/learner";
 
 export default async function CourseWorkspacePage({
@@ -20,7 +18,7 @@ export default async function CourseWorkspacePage({
   const { courseId } = await params;
   const context = await requireLearnerContext();
 
-  const [course, chats, latestLessonSession, materialRows] = await Promise.all([
+  const [course, latestLessonSession] = await Promise.all([
     db.course.findUnique({
       where: { id: courseId },
       include: {
@@ -34,7 +32,6 @@ export default async function CourseWorkspacePage({
         },
       },
     }),
-    getRecentChats(context, { courseId, limit: 30 }),
     db.session.findFirst({
       where: {
         learnerId: context.learnerId,
@@ -44,17 +41,13 @@ export default async function CourseWorkspacePage({
       orderBy: { updatedAt: "desc" },
       include: { lesson: { select: { id: true, title: true } } },
     }),
-    db.contextSource.findMany({
-      where: { learnerId: context.learnerId, sourceType: "upload" },
-      orderBy: { createdAt: "desc" },
-    }),
   ]);
 
   if (!course) {
     notFound();
   }
 
-  const sections: WorkspaceSection[] = [
+  const sections: SyllabusSection[] = [
     ...course.modules.map((module) => ({
       key: module.id,
       title: module.title,
@@ -90,25 +83,6 @@ export default async function CourseWorkspacePage({
     ? `/courses/${course.id}/lessons/${nextLesson.id}/learn`
     : `/courses/${course.id}`;
 
-  const materials: WorkspaceMaterial[] = materialRows
-    .filter((row) => {
-      const content = row.content as { courseId?: string } | null;
-      return content?.courseId === courseId;
-    })
-    .map((row) => {
-      const content = row.content as {
-        mimeType?: string;
-        size?: number;
-      };
-      return {
-        id: row.id,
-        label: row.label,
-        mimeType: content.mimeType ?? null,
-        size: content.size ?? null,
-        createdAt: row.createdAt.toISOString(),
-      };
-    });
-
   const continueTarget = latestLessonSession?.lesson
     ? {
         lessonId: latestLessonSession.lesson.id,
@@ -117,11 +91,18 @@ export default async function CourseWorkspacePage({
     : null;
 
   return (
-    <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-8">
+    <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
       <header className="mb-6 flex items-center justify-between gap-4">
-        <h1 className="min-w-0 truncate font-heading text-2xl font-semibold tracking-tight">
-          {course.title}
-        </h1>
+        <div className="min-w-0">
+          <h1 className="truncate font-heading text-2xl font-semibold tracking-tight">
+            {course.title}
+          </h1>
+          {course.description ? (
+            <p className="mt-1 truncate text-sm text-muted-foreground">
+              {course.description}
+            </p>
+          ) : null}
+        </div>
         {nextLesson ? (
           <Button render={<Link href={goLiveHref} />}>Go live</Button>
         ) : null}
@@ -131,15 +112,9 @@ export default async function CourseWorkspacePage({
         <WorkspaceComposer courseId={course.id} goLiveHref={goLiveHref} />
       </div>
 
-      <WorkspaceTabs
+      <Syllabus
         courseId={course.id}
         sections={sections}
-        chats={chats.map((chat) => ({
-          id: chat.id,
-          topic: chat.topic,
-          updatedAt: chat.updatedAt.toISOString(),
-        }))}
-        materials={materials}
         continueTarget={continueTarget}
       />
     </main>

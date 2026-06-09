@@ -74,8 +74,8 @@ export default async function HomePage() {
   const displayName = context.displayName?.split(/\s+/)[0];
 
   return (
-    <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-10">
-      <PageHeader className="mb-8">
+    <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
+      <PageHeader className="mb-6">
         <PageHeaderContent>
           <PageHeaderEyebrow>Home</PageHeaderEyebrow>
           <PageHeaderTitle>
@@ -87,7 +87,7 @@ export default async function HomePage() {
         </PageHeaderContent>
       </PageHeader>
 
-      <div className="space-y-10">
+      <div className="space-y-8">
         {jumpBackIn.length > 0 ? (
           <section>
             <h2 className="mb-3 font-heading text-lg font-medium tracking-tight">
@@ -140,7 +140,7 @@ export default async function HomePage() {
             <h2 className="mb-3 font-heading text-lg font-medium tracking-tight">
               Your courses
             </h2>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {enrolledCourses.map((course) => {
                 const total = course.lessons.length;
                 const touched = Math.min(

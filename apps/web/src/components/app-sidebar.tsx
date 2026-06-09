@@ -218,11 +218,15 @@ function CourseSection({
             <SidebarMenuSubItem>
               <SidebarMenuSubButton
                 isActive={pathname === `/courses/${course.id}/materials`}
-                render={
-                  <Link href={`/courses/${course.id}?tab=materials`} />
-                }
+                render={<Link href={`/courses/${course.id}/materials`} />}
               >
-                <FolderSimpleIcon />
+                <FolderSimpleIcon
+                  weight={
+                    pathname === `/courses/${course.id}/materials`
+                      ? "fill"
+                      : "regular"
+                  }
+                />
                 <span>Materials</span>
               </SidebarMenuSubButton>
             </SidebarMenuSubItem>
