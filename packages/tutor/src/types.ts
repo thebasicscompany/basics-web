@@ -9,12 +9,19 @@ import type {
 /** A session event draft awaiting envelope assignment by the event store. */
 export type TutorEventDraft = SessionEventDraft;
 
+/** Learner-provided material (e.g. an uploaded document) usable in a turn. */
+export type TutorMaterial = {
+  label: string;
+  text: string;
+};
+
 export type TutorTurnContext = {
   session: Session;
   events: SessionEvent[];
   learnerText: string;
   course?: Course;
   lesson?: Lesson;
+  materials?: TutorMaterial[];
 };
 
 export type TutorStreamItem =

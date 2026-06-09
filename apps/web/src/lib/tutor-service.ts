@@ -2,6 +2,7 @@ import "server-only";
 import type { Course, Lesson, Session } from "@basics/contracts";
 import {
   createTutorRuntime,
+  type TutorMaterial,
   type TutorStreamItem,
   type TutorTurnContext,
   type TutorTurnResult,
@@ -34,7 +35,7 @@ export async function buildTurnContext(
   session: Session,
   learnerText: string,
 ): Promise<TutorTurnContext> {
-  const [events, courseRow, lessonRow] = await Promise.all([
+  const [events, courseRow, lessonRow, materials] = await Promise.all([
     getSessionEvents(session.id),
     session.courseId
       ? db.course.findUnique({ where: { id: session.courseId } })
@@ -42,12 +43,55 @@ export async function buildTurnContext(
     session.lessonId
       ? db.lesson.findUnique({ where: { id: session.lessonId } })
       : null,
+    loadSessionMaterials(session),
   ]);
 
   const course: Course | undefined = courseRow ? toCourse(courseRow) : undefined;
   const lesson: Lesson | undefined = lessonRow ? toLesson(lessonRow) : undefined;
 
-  return { session, events, learnerText, course, lesson };
+  return { session, events, learnerText, course, lesson, materials };
+}
+
+/**
+ * Materials available to this turn: sources attached to the session plus the
+ * learner's course-level uploads (Materials tab) for the session's course.
+ */
+async function loadSessionMaterials(
+  session: Session,
+): Promise<TutorMaterial[]> {
+  if (session.contextSourceIds.length === 0 && !session.courseId) {
+    return [];
+  }
+
+  const rows = await db.contextSource.findMany({
+    where: {
+      learnerId: session.learnerId,
+      sourceType: "upload",
+      OR: [
+        ...(session.contextSourceIds.length > 0
+          ? [{ id: { in: session.contextSourceIds } }]
+          : []),
+        ...(session.courseId
+          ? [
+              {
+                content: {
+                  path: ["courseId"],
+                  equals: session.courseId,
+                },
+              },
+            ]
+          : []),
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+  });
+
+  return rows.flatMap((row) => {
+    const content = row.content as { extractedText?: string } | null;
+    const text = content?.extractedText?.trim();
+    return text ? [{ label: row.label, text }] : [];
+  });
 }
 
 type RunArgs = {

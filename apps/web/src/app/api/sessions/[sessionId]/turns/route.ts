@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { db } from "@/lib/db";
 import { getLearnerContext } from "@/lib/learner";
 import { toSession } from "@/lib/serializers";
 import { appendEvents, getOwnedSession } from "@/lib/session-store";
@@ -14,6 +15,11 @@ import { createId } from "@/lib/ids";
 const BodySchema = z.object({
   text: z.string().trim().min(1).max(4000),
 });
+
+function truncateTopic(text: string): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  return normalized.length > 60 ? `${normalized.slice(0, 57)}...` : normalized;
+}
 
 export async function POST(
   request: Request,
@@ -39,6 +45,16 @@ export async function POST(
   }
 
   const session = toSession(sessionRow);
+
+  // Auto-title chat threads from the first learner message.
+  if (!sessionRow.lessonId && !sessionRow.topic) {
+    const topic = truncateTopic(parsed.data.text);
+    await db.session.update({
+      where: { id: session.id },
+      data: { topic },
+    });
+    session.topic = topic;
+  }
 
   const learnerEvents = await appendEvents(context, session.id, [
     {

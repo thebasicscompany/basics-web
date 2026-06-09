@@ -58,7 +58,17 @@ export function LessonRoom({ session, lesson, initialEvents }: LessonRoomProps) 
 
   return (
     <AgentSessionProvider session={livekitSession}>
-      <LessonStage lesson={lesson} initialEvents={initialEvents} />
+      <LessonStage
+        lesson={lesson}
+        initialEvents={initialEvents}
+        backHref={
+          lesson
+            ? `/courses/${lesson.courseId}`
+            : session.courseId
+              ? `/courses/${session.courseId}`
+              : "/courses"
+        }
+      />
       <StartAudioButton label="Start audio" />
     </AgentSessionProvider>
   );
@@ -67,9 +77,11 @@ export function LessonRoom({ session, lesson, initialEvents }: LessonRoomProps) 
 function LessonStage({
   lesson,
   initialEvents,
+  backHref,
 }: {
   lesson: Lesson | null;
   initialEvents: SessionEvent[];
+  backHref: string;
 }) {
   const session = useSessionContext();
   const { messages } = useSessionMessages(session);
@@ -191,9 +203,7 @@ function LessonStage({
             variant="ghost"
             className="shrink-0"
             aria-label="Back to course"
-            render={
-              <Link href={lesson ? `/courses/${lesson.courseId}` : "/courses"} />
-            }
+            render={<Link href={backHref} />}
           >
             <ArrowLeftIcon />
           </Button>

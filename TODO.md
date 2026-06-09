@@ -1,5 +1,27 @@
 # TODO
 
+## Tutor harness extraction (next up)
+
+The tutoring "harness" (context assembly, event persistence, tool registry)
+is currently split between `apps/web/src/lib/tutor-service.ts` (chat turns via
+API routes) and `apps/agent` (live voice). Both assemble session context and
+persist events independently, and live tools (`apps/agent/src/tools.ts`) don't
+exist for the chat runtime. As we scale — more tools, more capabilities,
+integrations — this duplication gets worse.
+
+- [ ] Extract shared harness into the package layer (`@basics/tutor` or a new
+      `@basics/harness`): `loadSessionContext(sessionId)`,
+      `persistTurnEvents()`, prompt building, and a single tool registry both
+      runtimes draw from.
+- [ ] Rewire `apps/web` turn API route and `apps/agent` worker as thin
+      transport adapters (~50 lines each) over the harness.
+- [ ] Rerun smoke tests (`smoke`, `smoke:chat`, `smoke:pages`,
+      `smoke:uploads`) to verify no behavioral change.
+- [ ] Later, when we need resumable streams / long-running tool loops /
+      background work: move chat turn execution into the agent worker (it's
+      already a durable Node process) and have web proxy to it. The harness
+      package makes this a caller change, not a rewrite.
+
 ## Memory management (tutor sessions)
 
 The session event log is append-only and currently grows without bound. Every

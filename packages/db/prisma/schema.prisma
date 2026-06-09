@@ -20,6 +20,7 @@ model Learner {
   contextSources      ContextSource[]
   masteryObservations MasteryObservation[]
   summaries           Summary[]
+  enrollments         Enrollment[]
 
   @@map("learners")
 }
@@ -57,8 +58,26 @@ model Course {
   modules     CourseModule[]
   lessons     Lesson[]
   sessions    Session[]
+  enrollments Enrollment[]
 
   @@map("courses")
+}
+
+model Enrollment {
+  id         String   @id
+  learnerId  String   @map("learner_id")
+  courseId   String   @map("course_id")
+  status     String
+  enrolledAt DateTime @map("enrolled_at")
+  createdAt  DateTime @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  learner    Learner  @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([learnerId, courseId])
+  @@index([courseId])
+  @@index([learnerId, status])
+  @@map("enrollments")
 }
 
 model CourseModule {

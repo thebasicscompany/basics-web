@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRightIcon, ClockIcon } from "@phosphor-icons/react/dist/ssr";
 
+import { EnrollButton } from "@/components/enroll-button";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -19,6 +20,7 @@ import {
   PageHeaderTitle,
 } from "@/components/page-header";
 import { db } from "@/lib/db";
+import { requireLearnerContext } from "@/lib/learner";
 
 export const metadata = { title: "Courses | Basics" };
 
@@ -30,13 +32,23 @@ const levelLabel: Record<string, string> = {
 };
 
 export default async function CoursesPage() {
-  const courses = await db.course.findMany({
-    where: { status: "active" },
-    orderBy: { title: "asc" },
-    include: {
-      lessons: { select: { estimatedMinutes: true } },
-    },
-  });
+  const context = await requireLearnerContext();
+
+  const [courses, enrollments] = await Promise.all([
+    db.course.findMany({
+      where: { status: "active" },
+      orderBy: { title: "asc" },
+      include: {
+        lessons: { select: { estimatedMinutes: true } },
+      },
+    }),
+    db.enrollment.findMany({
+      where: { learnerId: context.learnerId, status: "active" },
+      select: { courseId: true },
+    }),
+  ]);
+
+  const enrolledIds = new Set(enrollments.map((row) => row.courseId));
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
@@ -45,7 +57,7 @@ export default async function CoursesPage() {
           <PageHeaderEyebrow>Library</PageHeaderEyebrow>
           <PageHeaderTitle>Courses</PageHeaderTitle>
           <PageHeaderDescription>
-            Pick a course and start a tutoring session on any lesson.
+            Enroll in a course and start a live tutoring session on any lesson.
           </PageHeaderDescription>
           <PageHeaderMeta>
             <span>
@@ -60,48 +72,56 @@ export default async function CoursesPage() {
             (total, lesson) => total + (lesson.estimatedMinutes ?? 0),
             0,
           );
+          const enrolled = enrolledIds.has(course.id);
 
           return (
-            <Link
+            <Card
               key={course.id}
-              href={`/courses/${course.id}`}
-              className="group"
+              className="group relative h-full shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_4px_12px_-2px_rgb(0_0_0/0.08)]"
             >
-              <Card className="h-full shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] transition-all group-hover:-translate-y-0.5 group-hover:border-primary/35 group-hover:shadow-[0_4px_12px_-2px_rgb(0_0_0/0.08)]">
-                <CardHeader>
-                  <div className="flex items-center justify-between gap-2">
-                    {course.level ? (
-                      <Badge variant="secondary">
-                        {levelLabel[course.level] ?? course.level}
-                      </Badge>
-                    ) : (
-                      <span />
-                    )}
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <ClockIcon className="size-3.5" />
-                      {minutes} min
-                    </span>
-                  </div>
-                  <CardTitle className="font-heading text-base leading-snug tracking-tight">
+              <CardHeader>
+                <div className="flex items-center justify-between gap-2">
+                  {course.level ? (
+                    <Badge variant="secondary">
+                      {levelLabel[course.level] ?? course.level}
+                    </Badge>
+                  ) : (
+                    <span />
+                  )}
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <ClockIcon className="size-3.5" />
+                    {minutes} min
+                  </span>
+                </div>
+                <CardTitle className="font-heading text-base leading-snug tracking-tight">
+                  <Link
+                    href={`/courses/${course.id}`}
+                    className="after:absolute after:inset-0 after:content-[''] hover:underline"
+                  >
                     {course.title}
-                  </CardTitle>
-                  <CardDescription>{course.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="mt-auto">
-                  <div className="flex flex-wrap gap-1.5">
-                    {course.tags.map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-                <CardFooter className="text-sm text-muted-foreground">
+                  </Link>
+                </CardTitle>
+                <CardDescription>{course.description}</CardDescription>
+              </CardHeader>
+              <CardContent className="mt-auto">
+                <div className="flex flex-wrap gap-1.5">
+                  {course.tags.map((tag) => (
+                    <Badge key={tag} variant="outline" className="text-xs">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+              <CardFooter className="relative flex items-center justify-between text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
                   {course.lessons.length} lessons
-                  <ArrowRightIcon className="ml-auto size-4 transition-transform group-hover:translate-x-0.5" />
-                </CardFooter>
-              </Card>
-            </Link>
+                  <ArrowRightIcon className="size-4 transition-transform group-hover:translate-x-0.5" />
+                </span>
+                <span className="relative z-10">
+                  <EnrollButton courseId={course.id} enrolled={enrolled} />
+                </span>
+              </CardFooter>
+            </Card>
           );
         })}
       </div>

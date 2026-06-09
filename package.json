@@ -13,6 +13,7 @@
     "db:seed": "pnpm --filter @basics/db db:seed"
   },
   "devDependencies": {
+    "sst": "^4.15.2",
     "turbo": "^2.6.1"
   },
   "pnpm": {

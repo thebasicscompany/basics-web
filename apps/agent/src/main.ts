@@ -117,7 +117,29 @@ export default defineAgent<{ vad: silero.VAD }>({
               updatedAt: sessionRow.lesson.updatedAt.toISOString(),
             }
           : null,
-        course: null,
+        course: sessionRow.course
+          ? {
+              id: sessionRow.course.id,
+              slug: sessionRow.course.slug,
+              title: sessionRow.course.title,
+              description: sessionRow.course.description ?? undefined,
+              level: sessionRow.course.level as
+                | "introductory"
+                | "beginner"
+                | "intermediate"
+                | "advanced"
+                | undefined,
+              tags: sessionRow.course.tags,
+              moduleIds: [],
+              lessonIds: [],
+              status: sessionRow.course.status as
+                | "draft"
+                | "active"
+                | "archived",
+              createdAt: sessionRow.course.createdAt.toISOString(),
+              updatedAt: sessionRow.course.updatedAt.toISOString(),
+            }
+          : null,
         priorEvents,
       }),
       tools,
@@ -160,6 +182,7 @@ export default defineAgent<{ vad: silero.VAD }>({
 
     // Persist every finalized conversation item to the session event log so
     // the lesson transcript and whiteboard rehydrate after reload.
+    const pendingTranscriptWrites = new Set<Promise<unknown>>();
     session.on(voice.AgentSessionEventTypes.ConversationItemAdded, (event) => {
       const item = event.item;
       if (item.type !== "message") {
@@ -170,7 +193,7 @@ export default defineAgent<{ vad: silero.VAD }>({
         return;
       }
 
-      void appendSessionEvents(
+      const write = appendSessionEvents(
         db,
         {
           learnerId: sessionRow.learnerId,
@@ -190,6 +213,14 @@ export default defineAgent<{ vad: silero.VAD }>({
       ).catch((error: unknown) => {
         console.error("Failed to persist transcript event", error);
       });
+      pendingTranscriptWrites.add(write);
+      void write.finally(() => pendingTranscriptWrites.delete(write));
+    });
+
+    // Don't lose the tail of the transcript when the session ends: wait for
+    // in-flight writes before the worker process exits.
+    ctx.addShutdownCallback(async () => {
+      await Promise.allSettled([...pendingTranscriptWrites]);
     });
 
     await session.start({

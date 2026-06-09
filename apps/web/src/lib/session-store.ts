@@ -48,6 +48,39 @@ export async function getSessionEvents(
 }
 
 /**
+ * Creates a new chat thread for a course: a Session with courseId set and
+ * lessonId null. Unlike lesson sessions, every call creates a fresh thread.
+ */
+export async function createChatSession(
+  context: LearnerContext,
+  courseId: string,
+  contextSourceIds: string[] = [],
+): Promise<Session> {
+  await db.course.findUniqueOrThrow({ where: { id: courseId } });
+  const now = new Date();
+
+  const created = await db.session.create({
+    data: {
+      id: createId("session"),
+      learnerId: context.learnerId,
+      workspaceId: context.workspaceId,
+      courseId,
+      contextSourceIds,
+      status: "active",
+      state: {
+        status: "active",
+        enteredAt: now.toISOString(),
+        lastEventSequence: 0,
+      },
+      startedAt: now,
+      createdAt: now,
+    },
+  });
+
+  return toSession(created);
+}
+
+/**
  * Returns the learner's active session for a lesson, creating one if none
  * exists. One active session per learner per lesson.
  */

@@ -15,7 +15,11 @@ out/
 # generated
 packages/db/src/generated/
 
+# sst
+.sst/
+
 # misc
+newsidebar.txt
 .DS_Store
 *.log
 *.tsbuildinfo

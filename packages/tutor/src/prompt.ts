@@ -28,7 +28,32 @@ export function buildSystemPrompt(context: TutorTurnContext): string {
     `Current lesson or topic: ${focus}.`,
     objectives.length > 0 ? `Lesson objectives: ${objectives.join("; ")}.` : "",
     concepts.length > 0 ? `Concept keys: ${concepts.join(", ")}.` : "",
+    ...buildMaterialsSection(context),
   ]
     .filter((line) => line !== "")
     .join("\n");
+}
+
+const MAX_MATERIAL_CHARS = 4000;
+
+function buildMaterialsSection(context: TutorTurnContext): string[] {
+  const materials = (context.materials ?? []).filter(
+    (material) => material.text.trim() !== "",
+  );
+
+  if (materials.length === 0) {
+    return [];
+  }
+
+  return [
+    "",
+    "The learner has shared the following material. Use it to tailor your teaching; reference it directly when relevant.",
+    ...materials.map((material) => {
+      const text =
+        material.text.length > MAX_MATERIAL_CHARS
+          ? `${material.text.slice(0, MAX_MATERIAL_CHARS)}\n[truncated]`
+          : material.text;
+      return `--- ${material.label} ---\n${text}`;
+    }),
+  ];
 }
