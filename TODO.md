@@ -43,7 +43,7 @@ the agent worker are usually already running in terminals — check first.
 **Naming first** — make the monorepo self-explanatory
 (`apps/` = deployable processes, `packages/` = libraries):
 
-- [ ] Rename `apps/agent` → `apps/voice` (`@basics/agent` → `@basics/voice`):
+- [x] Rename `apps/agent` → `apps/voice` (`@basics/agent` → `@basics/voice`):
       it is the LiveKit voice worker, nothing more. Update workspace refs,
       turbo filters, dev scripts (`pnpm --filter @basics/voice dev`), and any
       Doppler project/config mapping pointed at the old path

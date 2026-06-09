@@ -3,7 +3,7 @@
  * joins its LiveKit room as a fake learner (subscribing to audio), waits for
  * the tutor agent to join, speak, and broadcast/persist events.
  *
- * Usage: pnpm --filter @basics/agent smoke (worker must be running)
+ * Usage: pnpm --filter @basics/voice smoke (worker must be running)
  */
 import { AccessToken } from "livekit-server-sdk";
 import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";

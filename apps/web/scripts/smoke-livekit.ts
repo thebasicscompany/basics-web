@@ -167,7 +167,7 @@ async function main() {
   }
 
   console.log(
-    "\nConnection-details smoke test passed. For the full in-room voice test, run: pnpm --filter @basics/agent smoke",
+    "\nConnection-details smoke test passed. For the full in-room voice test, run: pnpm --filter @basics/voice smoke",
   );
   await db.$disconnect();
 }

@@ -1,6 +1,6 @@
 /**
  * Dev utility: wipe all tutor session data (events, projections, sessions)
- * so lessons start fresh. Run with: pnpm --filter @basics/agent clear-sessions
+ * so lessons start fresh. Run with: pnpm --filter @basics/voice clear-sessions
  */
 import { createPrismaClient } from "@basics/db";
 
