@@ -1,5 +1,13 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import {
+  PageBreadcrumb,
+  PageBreadcrumbSeparator,
+  PageHeader,
+  PageHeaderContent,
+  PageHeaderTitle,
+} from "@/components/page-header";
 import { MaterialsPanel } from "@/components/workspace/materials-panel";
 import { db } from "@/lib/db";
 import { requireLearnerContext } from "@/lib/learner";
@@ -49,19 +57,19 @@ export default async function CourseMaterialsPage({
     });
 
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
-      <header className="mb-6">
-        <p className="text-xs font-medium tracking-wide text-primary uppercase">
-          {course.title}
-        </p>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          Materials
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Notes, PDFs, and images your tutor draws on for this course. Start a
-          chat about any of them.
-        </p>
-      </header>
+    <main className="mx-auto w-full max-w-5xl flex-1 px-6 pt-24 pb-12">
+      <PageHeader className="mb-6">
+        <PageHeaderContent>
+          <PageBreadcrumb>
+            <Link href="/courses">Courses</Link>
+            <PageBreadcrumbSeparator />
+            <Link href={`/courses/${course.id}`} className="truncate">
+              {course.title}
+            </Link>
+          </PageBreadcrumb>
+          <PageHeaderTitle>Materials</PageHeaderTitle>
+        </PageHeaderContent>
+      </PageHeader>
 
       <MaterialsPanel courseId={course.id} initialMaterials={materials} />
     </main>

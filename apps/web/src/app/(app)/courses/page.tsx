@@ -14,9 +14,6 @@ import {
 import {
   PageHeader,
   PageHeaderContent,
-  PageHeaderDescription,
-  PageHeaderEyebrow,
-  PageHeaderMeta,
   PageHeaderTitle,
 } from "@/components/page-header";
 import { db } from "@/lib/db";
@@ -51,19 +48,10 @@ export default async function CoursesPage() {
   const enrolledIds = new Set(enrollments.map((row) => row.courseId));
 
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
-      <PageHeader className="mb-10">
+    <main className="mx-auto w-full max-w-5xl flex-1 px-6 pt-24 pb-12">
+      <PageHeader className="mb-6">
         <PageHeaderContent>
-          <PageHeaderEyebrow>Library</PageHeaderEyebrow>
           <PageHeaderTitle>Courses</PageHeaderTitle>
-          <PageHeaderDescription>
-            Enroll in a course and start a live tutoring session on any lesson.
-          </PageHeaderDescription>
-          <PageHeaderMeta>
-            <span>
-              {courses.length} {courses.length === 1 ? "course" : "courses"}
-            </span>
-          </PageHeaderMeta>
         </PageHeaderContent>
       </PageHeader>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

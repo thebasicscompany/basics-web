@@ -6,6 +6,10 @@ import {
   type ChatInitialMessage,
 } from "@/components/chat/session-chat";
 import { ChatThread } from "@/components/chat/thread";
+import {
+  PageBreadcrumb,
+  PageBreadcrumbSeparator,
+} from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { requireLearnerContext } from "@/lib/learner";
 import { getOwnedSession, getSessionEvents } from "@/lib/session-store";
@@ -48,14 +52,13 @@ export default async function ChatThreadPage({
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex items-center justify-between gap-4 border-b px-6 py-3">
         <div className="min-w-0">
-          <p className="text-xs text-muted-foreground">
-            <Link
-              href={`/courses/${courseId}`}
-              className="hover:text-foreground"
-            >
+          <PageBreadcrumb className="text-xs">
+            <Link href="/courses">Courses</Link>
+            <PageBreadcrumbSeparator />
+            <Link href={`/courses/${courseId}`} className="truncate">
               {session.course?.title ?? "Course"}
             </Link>
-          </p>
+          </PageBreadcrumb>
           <h1 className="truncate font-heading text-base font-semibold tracking-tight">
             {session.topic ?? "New chat"}
           </h1>

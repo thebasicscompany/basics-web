@@ -9,8 +9,6 @@ import { EnrollButton } from "@/components/enroll-button";
 import {
   PageHeader,
   PageHeaderContent,
-  PageHeaderDescription,
-  PageHeaderEyebrow,
   PageHeaderTitle,
 } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -74,16 +72,12 @@ export default async function HomePage() {
   const displayName = context.displayName?.split(/\s+/)[0];
 
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
+    <main className="mx-auto w-full max-w-5xl flex-1 px-6 pt-24 pb-12">
       <PageHeader className="mb-6">
         <PageHeaderContent>
-          <PageHeaderEyebrow>Home</PageHeaderEyebrow>
           <PageHeaderTitle>
             {displayName ? `Welcome back, ${displayName}` : "Welcome back"}
           </PageHeaderTitle>
-          <PageHeaderDescription>
-            Pick up where you left off, or start something new.
-          </PageHeaderDescription>
         </PageHeaderContent>
       </PageHeader>
 

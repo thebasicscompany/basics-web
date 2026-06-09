@@ -3,6 +3,14 @@ import { notFound } from "next/navigation";
 
 import { WorkspaceComposer } from "@/components/chat/workspace-composer";
 import {
+  PageBreadcrumb,
+  PageBreadcrumbSeparator,
+  PageHeader,
+  PageHeaderActions,
+  PageHeaderContent,
+  PageHeaderTitle,
+} from "@/components/page-header";
+import {
   Syllabus,
   type SyllabusSection,
 } from "@/components/workspace/syllabus";
@@ -91,22 +99,22 @@ export default async function CourseWorkspacePage({
     : null;
 
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
-      <header className="mb-6 flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="truncate font-heading text-2xl font-semibold tracking-tight">
-            {course.title}
-          </h1>
-          {course.description ? (
-            <p className="mt-1 truncate text-sm text-muted-foreground">
-              {course.description}
-            </p>
-          ) : null}
-        </div>
+    <main className="mx-auto w-full max-w-5xl flex-1 px-6 pt-24 pb-12">
+      <PageHeader className="mb-6">
+        <PageHeaderContent>
+          <PageBreadcrumb>
+            <Link href="/courses">Courses</Link>
+            <PageBreadcrumbSeparator />
+            <span className="truncate text-foreground">{course.title}</span>
+          </PageBreadcrumb>
+          <PageHeaderTitle>Overview</PageHeaderTitle>
+        </PageHeaderContent>
         {nextLesson ? (
-          <Button render={<Link href={goLiveHref} />}>Go live</Button>
+          <PageHeaderActions>
+            <Button render={<Link href={goLiveHref} />}>Go live</Button>
+          </PageHeaderActions>
         ) : null}
-      </header>
+      </PageHeader>
 
       <div className="mb-8">
         <WorkspaceComposer courseId={course.id} goLiveHref={goLiveHref} />

@@ -45,6 +45,36 @@ function PageHeaderEyebrow({
   );
 }
 
+/**
+ * Docs-style breadcrumb rendered above the page title, e.g.
+ * "Courses / Visual JavaScript Fundamentals". Compose with links and
+ * <PageBreadcrumbSeparator /> between items.
+ */
+function PageBreadcrumb({
+  className,
+  ...props
+}: React.ComponentProps<"nav">) {
+  return (
+    <nav
+      data-slot="page-breadcrumb"
+      aria-label="Breadcrumb"
+      className={cn(
+        "flex min-w-0 items-center gap-2 text-sm text-muted-foreground [&_a]:transition-colors [&_a:hover]:text-foreground",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function PageBreadcrumbSeparator() {
+  return (
+    <span aria-hidden className="select-none text-border">
+      /
+    </span>
+  );
+}
+
 function PageHeaderTitle({
   className,
   ...props
@@ -110,6 +140,8 @@ export {
   PageHeader,
   PageHeaderContent,
   PageHeaderEyebrow,
+  PageBreadcrumb,
+  PageBreadcrumbSeparator,
   PageHeaderTitle,
   PageHeaderDescription,
   PageHeaderMeta,
