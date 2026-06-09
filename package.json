@@ -1,0 +1,27 @@
+{
+  "name": "basics-web",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "db:up": "docker compose up -d db",
+    "db:migrate": "pnpm --filter @basics/db db:migrate",
+    "db:seed": "pnpm --filter @basics/db db:seed"
+  },
+  "devDependencies": {
+    "turbo": "^2.6.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/engines",
+      "esbuild",
+      "prisma",
+      "sharp",
+      "unrs-resolver"
+    ]
+  }
+}

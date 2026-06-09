@@ -1,0 +1,305 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Learner {
+  id                  String               @id
+  clerkUserId         String?              @unique @map("clerk_user_id")
+  displayName         String?              @map("display_name")
+  goals               String[]             @default([])
+  createdAt           DateTime             @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  personalWorkspace   Workspace?           @relation("PersonalWorkspaceOwner")
+  sessions            Session[]
+  contextSources      ContextSource[]
+  masteryObservations MasteryObservation[]
+  summaries           Summary[]
+
+  @@map("learners")
+}
+
+model Workspace {
+  id                  String                   @id
+  kind                String
+  clerkOrganizationId String?                  @unique @map("clerk_organization_id")
+  ownerLearnerId      String?                  @unique @map("owner_learner_id")
+  name                String
+  slug                String?
+  imageUrl            String?                  @map("image_url")
+  createdAt           DateTime                 @map("created_at")
+  updatedAt           DateTime                 @updatedAt @map("updated_at")
+  ownerLearner        Learner?                 @relation("PersonalWorkspaceOwner", fields: [ownerLearnerId], references: [id], onDelete: SetNull)
+  sessions            Session[]
+  contextSources      ContextSource[]
+  masteryObservations MasteryObservation[]
+  checkpoints         LessonCheckpointRecord[]
+  summaries           Summary[]
+
+  @@map("workspaces")
+}
+
+model Course {
+  id          String         @id
+  slug        String         @unique
+  title       String
+  description String?
+  level       String?
+  tags        String[]       @default([])
+  status      String
+  createdAt   DateTime       @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  modules     CourseModule[]
+  lessons     Lesson[]
+  sessions    Session[]
+
+  @@map("courses")
+}
+
+model CourseModule {
+  id         String    @id
+  courseId   String    @map("course_id")
+  slug       String
+  title      String
+  summary    String?
+  orderIndex Int       @map("order_index")
+  status     String
+  createdAt  DateTime  @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  course     Course    @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  lessons    Lesson[]
+  sessions   Session[]
+
+  @@unique([courseId, slug])
+  @@index([courseId, orderIndex])
+  @@map("course_modules")
+}
+
+model Lesson {
+  id                  String                   @id
+  courseId            String                   @map("course_id")
+  moduleId            String?                  @map("module_id")
+  slug                String
+  title               String
+  summary             String?
+  orderIndex          Int                      @map("order_index")
+  objectives          String[]                 @default([])
+  conceptKeys         String[]                 @default([]) @map("concept_keys")
+  estimatedMinutes    Int?                     @map("estimated_minutes")
+  status              String
+  createdAt           DateTime                 @map("created_at")
+  updatedAt           DateTime                 @updatedAt @map("updated_at")
+  course              Course                   @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  module              CourseModule?            @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  sessions            Session[]
+  masteryObservations MasteryObservation[]
+  checkpoints         LessonCheckpointRecord[]
+
+  @@unique([courseId, slug])
+  @@index([courseId, orderIndex])
+  @@index([moduleId, orderIndex])
+  @@map("lessons")
+}
+
+model Session {
+  id                  String                   @id
+  learnerId           String                   @map("learner_id")
+  workspaceId         String?                  @map("workspace_id")
+  courseId            String?                  @map("course_id")
+  moduleId            String?                  @map("module_id")
+  lessonId            String?                  @map("lesson_id")
+  topic               String?
+  goal                String?
+  state               Json
+  status              String
+  contextSourceIds    String[]                 @default([]) @map("context_source_ids")
+  startedAt           DateTime?                @map("started_at")
+  endedAt             DateTime?                @map("ended_at")
+  createdAt           DateTime                 @map("created_at")
+  updatedAt           DateTime                 @updatedAt @map("updated_at")
+  learner             Learner                  @relation(fields: [learnerId], references: [id], onDelete: Restrict)
+  workspace           Workspace?               @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  course              Course?                  @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  module              CourseModule?            @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  lesson              Lesson?                  @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  events              SessionEvent[]
+  transcriptSegments  TranscriptProjection[]
+  visualProjections   VisualStateProjection[]
+  contextSources      ContextSource[]
+  masteryObservations MasteryObservation[]
+  checkpoints         LessonCheckpointRecord[]
+  summaries           Summary[]
+  tutorRuns           TutorRun[]
+
+  @@index([learnerId, updatedAt])
+  @@index([workspaceId, learnerId, updatedAt])
+  @@index([courseId])
+  @@index([lessonId])
+  @@map("sessions")
+}
+
+model SessionEvent {
+  id                   String                  @id
+  sessionId            String                  @map("session_id")
+  sequence             Int
+  type                 String
+  payload              Json
+  occurredAt           DateTime                @map("occurred_at")
+  recordedAt           DateTime                @map("recorded_at")
+  session              Session                 @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  transcriptProjection TranscriptProjection?
+  visualProjection     VisualStateProjection?
+  contextSource        ContextSource?
+  masteryObservation   MasteryObservation?
+  checkpoint           LessonCheckpointRecord?
+
+  @@unique([sessionId, sequence])
+  @@index([sessionId, type])
+  @@map("session_events")
+}
+
+model TutorRun {
+  id        String   @id
+  sessionId String   @map("session_id")
+  status    String
+  pause     Json?
+  state     Json?
+  createdAt DateTime @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, status])
+  @@map("tutor_runs")
+}
+
+model TranscriptProjection {
+  eventId    String       @id @map("event_id")
+  sessionId  String       @map("session_id")
+  sequence   Int
+  segmentId  String?      @map("segment_id")
+  speaker    String
+  modality   String
+  text       String
+  isFinal    Boolean      @map("is_final")
+  occurredAt DateTime     @map("occurred_at")
+  createdAt  DateTime     @map("created_at")
+  event      SessionEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  session    Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, sequence])
+  @@index([segmentId])
+  @@map("transcript_projections")
+}
+
+model VisualStateProjection {
+  eventId    String       @id @map("event_id")
+  sessionId  String       @map("session_id")
+  sequence   Int
+  surfaceId  String       @map("surface_id")
+  actionType String       @map("action_type")
+  payload    Json
+  occurredAt DateTime     @map("occurred_at")
+  createdAt  DateTime     @map("created_at")
+  event      SessionEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  session    Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, surfaceId, sequence])
+  @@map("visual_state_projections")
+}
+
+model ContextSource {
+  id          String        @id
+  eventId     String?       @unique @map("event_id")
+  sessionId   String?       @map("session_id")
+  learnerId   String        @map("learner_id")
+  workspaceId String?       @map("workspace_id")
+  sourceType  String        @map("source_type")
+  label       String
+  capturedAt  DateTime?     @map("captured_at")
+  createdAt   DateTime      @map("created_at")
+  retention   String
+  content     Json
+  consent     String
+  event       SessionEvent? @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  session     Session?      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  learner     Learner       @relation(fields: [learnerId], references: [id], onDelete: Restrict)
+  workspace   Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+
+  @@index([learnerId, createdAt])
+  @@index([workspaceId, createdAt])
+  @@index([sessionId])
+  @@map("context_sources")
+}
+
+model MasteryObservation {
+  id            String        @id
+  eventId       String?       @unique @map("event_id")
+  learnerId     String        @map("learner_id")
+  workspaceId   String?       @map("workspace_id")
+  sessionId     String?       @map("session_id")
+  courseId      String?       @map("course_id")
+  lessonId      String?       @map("lesson_id")
+  conceptKey    String        @map("concept_key")
+  observedAt    DateTime      @map("observed_at")
+  sourceEventId String?       @map("source_event_id")
+  signal        String
+  level         String?
+  confidence    Float
+  note          String?
+  event         SessionEvent? @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  learner       Learner       @relation(fields: [learnerId], references: [id], onDelete: Restrict)
+  workspace     Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  session       Session?      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  lesson        Lesson?       @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+
+  @@index([learnerId, conceptKey])
+  @@index([workspaceId, conceptKey])
+  @@index([sessionId])
+  @@map("mastery_observations")
+}
+
+model LessonCheckpointRecord {
+  eventId     String       @id @map("event_id")
+  sessionId   String       @map("session_id")
+  learnerId   String       @map("learner_id")
+  workspaceId String?      @map("workspace_id")
+  lessonId    String?      @map("lesson_id")
+  title       String
+  summary     String
+  occurredAt  DateTime     @map("occurred_at")
+  createdAt   DateTime     @map("created_at")
+  event       SessionEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  session     Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  workspace   Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  lesson      Lesson?      @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+
+  @@index([learnerId, occurredAt])
+  @@index([workspaceId, occurredAt])
+  @@index([sessionId])
+  @@map("lesson_checkpoint_records")
+}
+
+model Summary {
+  id                     String     @id
+  sessionId              String     @map("session_id")
+  learnerId              String     @map("learner_id")
+  workspaceId            String?    @map("workspace_id")
+  kind                   String
+  text                   String
+  sourceEventSequenceMin Int?       @map("source_event_sequence_min")
+  sourceEventSequenceMax Int?       @map("source_event_sequence_max")
+  createdAt              DateTime   @map("created_at")
+  updatedAt              DateTime   @updatedAt @map("updated_at")
+  session                Session    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  learner                Learner    @relation(fields: [learnerId], references: [id], onDelete: Restrict)
+  workspace              Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+
+  @@index([sessionId, kind])
+  @@index([workspaceId, kind])
+  @@map("summaries")
+}

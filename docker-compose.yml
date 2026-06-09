@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:16
+    container_name: basics-web-db
+    environment:
+      POSTGRES_USER: basics
+      POSTGRES_PASSWORD: basics
+      POSTGRES_DB: basics_web
+    ports:
+      - "54330:5432"
+    volumes:
+      - basics_web_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U basics -d basics_web"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  basics_web_pgdata:
