@@ -20,7 +20,7 @@ export function setPendingMessage(sessionId: string, text: string) {
   }
 }
 
-function takePendingMessage(sessionId: string): string | null {
+export function takePendingMessage(sessionId: string): string | null {
   try {
     const key = `${PENDING_MESSAGE_PREFIX}${sessionId}`;
     const value = sessionStorage.getItem(key);
