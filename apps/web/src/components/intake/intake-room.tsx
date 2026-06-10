@@ -13,13 +13,13 @@ import {
   ArrowUpIcon,
   CaretLeftIcon,
   CircleNotchIcon,
-  GraduationCapIcon,
   PaperclipIcon,
   PlusIcon,
 } from "@phosphor-icons/react";
 import type { Session, SessionEvent } from "@basics/contracts";
 
 import { takePendingMessage } from "@/components/chat/session-chat";
+import { TextDots } from "@/components/loading-ui/text-dots";
 import {
   BuilderPanel,
   type PanelResponse,
@@ -320,7 +320,11 @@ export function IntakeRoom({
             {streamingText ? (
               <AssistantBubble text={streamingText} />
             ) : busy ? (
-              <AssistantBubble text="..." />
+              <div className="py-2">
+                <TextDots className="text-sm text-muted-foreground">
+                  Thinking
+                </TextDots>
+              </div>
             ) : null}
           </div>
         </div>
@@ -422,13 +426,8 @@ function UserBubble({ text }: { text: string }) {
 
 function AssistantBubble({ text }: { text: string }) {
   return (
-    <div className="flex gap-3 py-2">
-      <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-        <GraduationCapIcon weight="fill" className="size-4" />
-      </div>
-      <div className="min-w-0 flex-1 pt-1 text-sm leading-relaxed whitespace-pre-wrap">
-        {text}
-      </div>
+    <div className="py-2">
+      <div className="text-sm leading-relaxed whitespace-pre-wrap">{text}</div>
     </div>
   );
 }

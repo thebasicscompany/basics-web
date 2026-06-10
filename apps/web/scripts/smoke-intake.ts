@@ -17,7 +17,7 @@ process.env.DATABASE_URL ??=
 const CLERK_API = process.env.CLERK_API_URL ?? "https://api.clerk.com";
 const APP_URL = process.env.BASICS_SMOKE_APP_URL ?? "http://localhost:3000";
 const SMOKE_EMAIL = "basics-smoke+clerk_test@example.com";
-const MAX_TURNS = 8;
+const MAX_TURNS = 10;
 
 const secretKey = process.env.CLERK_SECRET_KEY;
 
@@ -157,12 +157,7 @@ async function main() {
 
   console.log(`3. Running the scripted interview on ${session.id}...`);
   await runTurn(authHeaders, session.id, {
-    text: [
-      "I want to learn how espresso machines work, as a curious beginner.",
-      "Keep this interview short: ask me at most one question about my",
-      "experience level (use the clickable choices), then propose a small",
-      "outline (2 modules) and ask me to confirm it.",
-    ].join(" "),
+    text: "I want to learn how espresso machines work. I'm a curious beginner doing this for fun, and a quick primer is plenty.",
   });
 
   let uiResponsesSent = 0;
@@ -194,11 +189,30 @@ async function main() {
       .find(
         (event) =>
           (event.type === "intake.present_choices" ||
+            event.type === "intake.assess_knowledge" ||
             event.type === "intake.request_confirmation") &&
           !answered.has(event.id),
       );
 
-    if (actionable?.type === "intake.present_choices") {
+    if (actionable?.type === "intake.assess_knowledge") {
+      const { topics } = actionable.payload as {
+        topics: { id: string; label: string }[];
+      };
+      console.log(`   - rating ${topics.length} knowledge topics...`);
+      await runTurn(authHeaders, session.id, {
+        response: {
+          refEventId: actionable.id,
+          value: {
+            kind: "knowledge",
+            ratings: Object.fromEntries(
+              topics.map((topic) => [topic.id, "new"]),
+            ),
+            labels: topics.map((topic) => `${topic.label} — New to me`),
+          },
+        },
+      });
+      uiResponsesSent += 1;
+    } else if (actionable?.type === "intake.present_choices") {
       const { choices } = actionable.payload as {
         choices: { id: string; label: string }[];
       };
