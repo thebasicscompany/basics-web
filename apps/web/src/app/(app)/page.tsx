@@ -111,15 +111,17 @@ export default async function HomePage() {
       </div>
 
       {/* Right rail: at a glance. */}
-      <aside className="hidden w-90 shrink-0 overflow-y-auto px-5 py-8 lg:block">
-        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          At a glance
-        </p>
-        <h2 className="mt-1 mb-5 font-heading text-lg font-medium tracking-tight">
-          {today}
-        </h2>
+      <aside className="hidden w-90 shrink-0 flex-col overflow-y-auto px-5 py-8 lg:flex">
+        {/* my-auto centers vertically but still scrolls cleanly when tall. */}
+        <div className="my-auto">
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            At a glance
+          </p>
+          <h2 className="mt-1 mb-5 font-heading text-lg font-medium tracking-tight">
+            {today}
+          </h2>
 
-        <div className="space-y-4">
+          <div className="space-y-4">
           <RailSection icon={<BroadcastIcon />} label="Continue">
             {jumpBackIn.length > 0 ? (
               <div className="divide-y">
@@ -247,6 +249,7 @@ export default async function HomePage() {
               </Link>
             </RailSection>
           ) : null}
+          </div>
         </div>
       </aside>
     </main>
