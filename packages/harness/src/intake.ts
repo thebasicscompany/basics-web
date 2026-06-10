@@ -4,6 +4,23 @@ import type { BasicsPrismaClient } from "@basics/db";
 import { createNamespacedId } from "./types";
 import { defineTool, recordMastery, type ToolSessionContext } from "./tools";
 
+/** The canonical stepper — fixed; the model never invents sections. */
+export const INTAKE_STEPS = [
+  { id: "focus", label: "Focus" },
+  { id: "prior_knowledge", label: "Prior knowledge" },
+  { id: "scope", label: "Scope" },
+  { id: "outline", label: "Outline" },
+  { id: "created", label: "Created" },
+] as const;
+
+const stepIdSchema = z.enum([
+  "focus",
+  "prior_knowledge",
+  "scope",
+  "outline",
+  "created",
+]);
+
 const choiceSchema = z.object({
   id: z
     .string()
@@ -37,11 +54,11 @@ export const intakePresentChoices = defineTool({
   name: "intake_present_choices",
   description: [
     "Show clickable choices in the builder panel instead of making the",
-    "learner type. Use for goals, experience level, focus areas, pace —",
-    "any question with a small set of likely answers. The learner can",
-    "always type instead.",
+    "learner type. Used for the focus and scope steps — any question with",
+    "a small set of likely answers. The learner can always type instead.",
   ].join(" "),
   parameters: z.object({
+    sectionId: stepIdSchema.describe("The stepper section this belongs to"),
     prompt: z.string().min(1).describe("The question the choices answer"),
     multiSelect: z
       .boolean()
@@ -52,6 +69,7 @@ export const intakePresentChoices = defineTool({
   toDrafts: (input) => [
     {
       type: "intake.present_choices",
+      sectionId: input.sectionId,
       prompt: input.prompt,
       multiSelect: input.multiSelect,
       choices: input.choices,
@@ -59,6 +77,39 @@ export const intakePresentChoices = defineTool({
   ],
   resultText: () =>
     "Choices shown in the panel. The learner will click or type a reply.",
+});
+
+export const intakeAssessKnowledge = defineTool({
+  name: "intake_assess_knowledge",
+  description: [
+    "Show a knowledge self-assessment grid in the builder panel: a list of",
+    "subtopics the learner rates as comfortable, somewhat familiar, or new.",
+    "Use for the prior_knowledge step instead of asking in prose.",
+  ].join(" "),
+  parameters: z.object({
+    prompt: z.string().min(1).describe("Short framing, e.g. 'How comfortable are you with these?'"),
+    topics: z
+      .array(choiceSchema)
+      .min(3)
+      .max(6)
+      .describe("Subtopics of what they want to learn, with short labels"),
+  }),
+  toDrafts: (input) => [
+    {
+      type: "intake.assess_knowledge",
+      sectionId: "prior_knowledge",
+      prompt: input.prompt,
+      topics: input.topics,
+    },
+  ],
+  resultText: () =>
+    "Knowledge grid shown in the panel. The learner will rate each topic.",
+  // One grid per session: re-presenting it every turn (a common model
+  // failure) is blocked structurally.
+  gate: (_ctx, events) =>
+    events.some((event) => event.type === "intake.assess_knowledge")
+      ? "Blocked: the knowledge grid was already shown. Use their ratings or move on; do not present it again."
+      : null,
 });
 
 export const intakeProposeOutline = defineTool({
@@ -76,6 +127,7 @@ export const intakeProposeOutline = defineTool({
   toDrafts: (input) => [
     {
       type: "intake.propose_outline",
+      sectionId: "outline",
       title: input.title,
       description: input.description,
       modules: input.modules,
@@ -97,6 +149,7 @@ export const intakeRequestConfirmation = defineTool({
   toDrafts: (input) => [
     {
       type: "intake.request_confirmation",
+      sectionId: "outline",
       prompt: input.prompt,
       confirmLabel: input.confirmLabel,
       rejectLabel: input.rejectLabel,
@@ -108,15 +161,15 @@ export const intakeRequestConfirmation = defineTool({
 export const intakeSetProgress = defineTool({
   name: "intake_set_progress",
   description: [
-    "Update the section checklist in the builder panel (e.g. Goal, Prior",
-    "knowledge, Outline, Created). Call as sections start and complete so",
-    "the learner can see the interview taking shape.",
+    "Update the fixed five-step checklist in the builder panel (focus,",
+    "prior_knowledge, scope, outline, created). Call at the start of every",
+    "turn with all five sections and their current status.",
   ].join(" "),
   parameters: z.object({
     sections: z
       .array(
         z.object({
-          id: z.string().min(1),
+          id: stepIdSchema,
           label: z.string().min(1),
           status: z.enum(["pending", "active", "done"]),
           summary: z
@@ -129,7 +182,15 @@ export const intakeSetProgress = defineTool({
       .max(8),
   }),
   toDrafts: (input) => [
-    { type: "intake.set_progress", sections: input.sections },
+    {
+      type: "intake.set_progress",
+      // Models often send summary: "" for pending sections; the contract
+      // wants the field absent instead.
+      sections: input.sections.map(({ summary, ...section }) => ({
+        ...section,
+        ...(summary?.trim() ? { summary: summary.trim() } : {}),
+      })),
+    },
   ],
   resultText: () => "Panel progress updated.",
 });
@@ -286,12 +347,51 @@ export const createCourse = defineTool({
   toDrafts: () => [],
   resultText: (input) =>
     `Course "${input.title}" created. Tell the learner it is ready.`,
+  // Structural confirmation gate: the persisted event log must show a
+  // request_confirmation that the learner answered (panel click or typed
+  // reply) in a LATER turn. Proposing and creating in the same turn is
+  // impossible by construction, whatever the prompt says.
+  gate: (_ctx, events) => {
+    let pendingConfirmationId: string | null = null;
+    let answered = false;
+
+    for (const event of events) {
+      if (event.type === "intake.request_confirmation") {
+        pendingConfirmationId = event.id;
+        answered = false;
+      } else if (!pendingConfirmationId || answered) {
+        continue;
+      } else if (event.type === "ui.response") {
+        if (event.refEventId === pendingConfirmationId) {
+          const value = event.value as { approved?: boolean } | null;
+          answered = value?.approved !== false;
+        }
+      } else if (
+        event.type === "transcript.utterance" &&
+        event.speaker === "learner" &&
+        event.isFinal
+      ) {
+        // A typed reply after the confirmation request counts as an answer;
+        // whether it was a yes is the model's call.
+        answered = true;
+      }
+    }
+
+    return answered
+      ? null
+      : [
+          "Blocked: the learner has not confirmed the outline yet. Call",
+          "intake_propose_outline and intake_request_confirmation, end the",
+          "turn, and wait for their reply before calling create_course.",
+        ].join(" ");
+  },
   perform: performCreateCourse,
 });
 
 /** Tools for the intake (course-creation interview) kind. */
 export const INTAKE_TOOLS = [
   intakePresentChoices,
+  intakeAssessKnowledge,
   intakeProposeOutline,
   intakeRequestConfirmation,
   intakeSetProgress,

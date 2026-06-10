@@ -174,16 +174,23 @@ export class AiTutorRuntime implements TutorRuntime {
       yield { kind: "event-draft", draft };
     };
 
-    // Bind the kind's pure tool definitions to the AI SDK. Execution is a
-    // no-op acknowledgment: the event drafts are produced from the stream's
-    // tool-call parts below, persisted by the caller at end of turn.
+    // Bind the kind's pure tool definitions to the AI SDK. Execution only
+    // evaluates the tool's structural gate (against events persisted before
+    // this turn, so the verdict is stable): the event drafts are produced
+    // from the stream's tool-call parts below, persisted by the caller at
+    // end of turn. A blocked gate is surfaced to the model as the tool
+    // result so it can correct course within the turn.
     const tools: ToolSet = Object.fromEntries(
       config.tools.map((definition) => [
         definition.name,
         tool({
           description: definition.description,
           inputSchema: definition.parameters,
-          execute: async () => ({ ok: true }),
+          execute: async () => {
+            const blocked =
+              definition.gate?.(toolSessionContext, context.events) ?? null;
+            return blocked ? { ok: false, error: blocked } : { ok: true };
+          },
         }),
       ]),
     );
@@ -250,6 +257,12 @@ export class AiTutorRuntime implements TutorRuntime {
           );
 
           if (!definition) {
+            break;
+          }
+
+          if (definition.gate?.(toolSessionContext, context.events)) {
+            // Blocked call: no drafts, no side effects. The model sees the
+            // gate message via the tool result above.
             break;
           }
 

@@ -93,6 +93,34 @@ export const LearnerSchema = strictObject({
 });
 export type Learner = z.infer<typeof LearnerSchema>;
 
+/**
+ * How the learner takes their turn in live voice sessions.
+ * - `realtime`: the agent detects end-of-turn automatically (turn detector).
+ * - `push_to_talk`: the learner holds a key to speak; releasing it commits
+ *   the turn (manual turn detection on the agent).
+ */
+export const VoiceModeSchema = z.enum(["realtime", "push_to_talk"]);
+export type VoiceMode = z.infer<typeof VoiceModeSchema>;
+
+// Per-field `.catch` so unknown or invalid stored values degrade to defaults
+// instead of failing the whole preferences object.
+export const LearnerPreferencesSchema = z.object({
+  voiceMode: VoiceModeSchema.catch("realtime"),
+  showCaptions: z.boolean().catch(true),
+});
+export type LearnerPreferences = z.infer<typeof LearnerPreferencesSchema>;
+
+export const DEFAULT_LEARNER_PREFERENCES: LearnerPreferences = {
+  voiceMode: "realtime",
+  showCaptions: true,
+};
+
+/** Parses a stored preferences blob, falling back to defaults when invalid. */
+export function parseLearnerPreferences(value: unknown): LearnerPreferences {
+  const result = LearnerPreferencesSchema.safeParse(value ?? {});
+  return result.success ? result.data : { ...DEFAULT_LEARNER_PREFERENCES };
+}
+
 export const WorkspaceKindSchema = z.enum(["personal", "organization"]);
 export type WorkspaceKind = z.infer<typeof WorkspaceKindSchema>;
 
@@ -478,6 +506,22 @@ export type LessonCheckpointReachedEvent = z.infer<
   typeof LessonCheckpointReachedEventSchema
 >;
 
+/**
+ * The canonical intake stepper. Fixed in code — the model fills in each
+ * step's content but never invents sections.
+ */
+export const IntakeStepIdSchema = z.enum([
+  "focus",
+  "prior_knowledge",
+  "scope",
+  "outline",
+  "created",
+]);
+export type IntakeStepId = z.infer<typeof IntakeStepIdSchema>;
+
+export const KnowledgeLevelSchema = z.enum(["comfortable", "somewhat", "new"]);
+export type KnowledgeLevel = z.infer<typeof KnowledgeLevelSchema>;
+
 export const IntakeChoiceSchema = strictObject({
   id: nonEmptyStringSchema,
   label: nonEmptyStringSchema,
@@ -508,18 +552,29 @@ export type IntakeOutlineModule = z.infer<typeof IntakeOutlineModuleSchema>;
 export const IntakeEventSchema = z.discriminatedUnion("type", [
   sessionEventBaseSchema.extend({
     type: z.literal("intake.present_choices"),
+    /** Which stepper section this prompt belongs to. */
+    sectionId: IntakeStepIdSchema.optional(),
     prompt: nonEmptyStringSchema,
     multiSelect: z.boolean().optional(),
     choices: z.array(IntakeChoiceSchema).min(1),
   }),
   sessionEventBaseSchema.extend({
+    type: z.literal("intake.assess_knowledge"),
+    sectionId: IntakeStepIdSchema.optional(),
+    prompt: nonEmptyStringSchema,
+    /** Subtopics the learner rates (comfortable / somewhat / new). */
+    topics: z.array(IntakeChoiceSchema).min(1),
+  }),
+  sessionEventBaseSchema.extend({
     type: z.literal("intake.propose_outline"),
+    sectionId: IntakeStepIdSchema.optional(),
     title: nonEmptyStringSchema,
     description: nonEmptyStringSchema.optional(),
     modules: z.array(IntakeOutlineModuleSchema).min(1),
   }),
   sessionEventBaseSchema.extend({
     type: z.literal("intake.request_confirmation"),
+    sectionId: IntakeStepIdSchema.optional(),
     prompt: nonEmptyStringSchema,
     confirmLabel: nonEmptyStringSchema.optional(),
     rejectLabel: nonEmptyStringSchema.optional(),

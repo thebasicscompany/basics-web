@@ -25,8 +25,10 @@ export {
 } from "./context";
 export { persistTurnEvents, type EventStoreContext } from "./persist";
 export {
+  INTAKE_STEPS,
   INTAKE_TOOLS,
   createCourse,
+  intakeAssessKnowledge,
   intakePresentChoices,
   intakeProposeOutline,
   intakeRequestConfirmation,

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { SessionEventDraft } from "@basics/contracts";
+import type { SessionEvent, SessionEventDraft } from "@basics/contracts";
 import type { BasicsPrismaClient } from "@basics/db";
 import { createNamespacedId } from "./types";
 
@@ -50,6 +50,13 @@ export type ToolDefinition<Input = any> = {
     ctx: ToolSessionContext,
     db: BasicsPrismaClient,
   ) => Promise<SessionEventDraft[]>;
+  /**
+   * Optional structural precondition checked against the session's
+   * persisted events at the start of the turn. Returning a string blocks
+   * the call: no drafts, no perform, and the message is surfaced to the
+   * model as the tool result so it can correct course within the turn.
+   */
+  gate?: (ctx: ToolSessionContext, events: SessionEvent[]) => string | null;
 };
 
 function defineTool<Schema extends z.ZodTypeAny>(def: {
@@ -66,6 +73,7 @@ function defineTool<Schema extends z.ZodTypeAny>(def: {
     ctx: ToolSessionContext,
     db: BasicsPrismaClient,
   ) => Promise<SessionEventDraft[]>;
+  gate?: (ctx: ToolSessionContext, events: SessionEvent[]) => string | null;
 }): ToolDefinition<z.output<Schema>> {
   return def as ToolDefinition<z.output<Schema>>;
 }

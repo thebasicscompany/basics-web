@@ -94,6 +94,17 @@ export function sessionEventsToMessages(
       continue;
     }
 
+    if (event.type === "intake.assess_knowledge") {
+      const topics = event.topics
+        .map((topic) => `${topic.id}: ${topic.label}`)
+        .join("; ");
+      messages.push({
+        role: "assistant",
+        content: `[Panel knowledge grid ${event.id}] ${event.prompt} (${topics})`,
+      });
+      continue;
+    }
+
     if (event.type === "intake.propose_outline") {
       const outline = event.modules
         .map(
