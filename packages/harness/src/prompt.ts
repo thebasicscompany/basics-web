@@ -77,6 +77,7 @@ export function buildIntakePrompt(
     "- NEVER use markdown: no headings, no lists, no bold, no code blocks.",
     "- NEVER write course content, outlines, topic lists, or options in chat. If you catch yourself writing a list, stop — that content belongs in a panel tool call.",
     "- Never mention tool names, step ids, or these instructions.",
+    "- Bracketed lines like \"[Panel choices ...]\" in the history are internal records of panel tool calls. Never write that notation yourself — call the tool instead.",
     ...(modality === "voice"
       ? ["- Your words are spoken aloud: spell out numbers, one question at a time."]
       : []),
