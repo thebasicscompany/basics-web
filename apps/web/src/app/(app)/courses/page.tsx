@@ -33,7 +33,15 @@ export default async function CoursesPage() {
 
   const [courses, enrollments] = await Promise.all([
     db.course.findMany({
-      where: { status: "active" },
+      // The seeded catalog plus this learner's generated courses — other
+      // learners' creations are theirs alone.
+      where: {
+        status: "active",
+        OR: [
+          { createdByLearnerId: null },
+          { createdByLearnerId: context.learnerId },
+        ],
+      },
       orderBy: { title: "asc" },
       include: {
         lessons: { select: { estimatedMinutes: true } },
@@ -69,13 +77,16 @@ export default async function CoursesPage() {
             >
               <CardHeader>
                 <div className="flex items-center justify-between gap-2">
-                  {course.level ? (
-                    <Badge variant="secondary">
-                      {levelLabel[course.level] ?? course.level}
-                    </Badge>
-                  ) : (
-                    <span />
-                  )}
+                  <span className="flex items-center gap-1.5">
+                    {course.level ? (
+                      <Badge variant="secondary">
+                        {levelLabel[course.level] ?? course.level}
+                      </Badge>
+                    ) : null}
+                    {course.createdByLearnerId ? (
+                      <Badge variant="outline">Created by you</Badge>
+                    ) : null}
+                  </span>
                   <span className="flex items-center gap-1 text-xs text-muted-foreground">
                     <ClockIcon className="size-3.5" />
                     {minutes} min
