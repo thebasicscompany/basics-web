@@ -8,6 +8,7 @@ import {
   type ToolSet,
 } from "ai";
 import { z } from "zod";
+import type { BasicsPrismaClient } from "@basics/db";
 import { sessionKindOf, type SessionContext } from "./context";
 import { getKindConfig } from "./kinds";
 import { sessionEventsToMessages } from "./messages";
@@ -44,15 +45,19 @@ const ResumeStateSchema = z.object({
 
 export type AiTutorRuntimeOptions = {
   modelId?: string;
+  /** Enables tools with a `perform` side effect (e.g. intake's create_course). */
+  db?: BasicsPrismaClient;
 };
 
 export class AiTutorRuntime implements TutorRuntime {
   private readonly model: LanguageModel;
+  private readonly db?: BasicsPrismaClient;
 
   constructor(options: AiTutorRuntimeOptions = {}) {
     this.model = openai(
       options.modelId ?? process.env.BASICS_TUTOR_MODEL ?? "gpt-4o-mini",
     );
+    this.db = options.db;
   }
 
   async *runTurn(
@@ -263,6 +268,18 @@ export class AiTutorRuntime implements TutorRuntime {
             toolSessionContext,
           )) {
             yield* pushDraft(draft);
+          }
+
+          if (definition.perform && this.db) {
+            const performed = await definition.perform(
+              part.input,
+              toolSessionContext,
+              this.db,
+            );
+
+            for (const draft of performed) {
+              yield* pushDraft(draft);
+            }
           }
           break;
         }

@@ -1,5 +1,5 @@
 import { DeterministicTutorRuntime } from "./deterministic";
-import { AiTutorRuntime } from "./runtime";
+import { AiTutorRuntime, type AiTutorRuntimeOptions } from "./runtime";
 import type { TutorRuntime } from "./types";
 
 export * from "./types";
@@ -25,6 +25,15 @@ export {
 } from "./context";
 export { persistTurnEvents, type EventStoreContext } from "./persist";
 export {
+  INTAKE_TOOLS,
+  createCourse,
+  intakePresentChoices,
+  intakeProposeOutline,
+  intakeRequestConfirmation,
+  intakeSetProgress,
+} from "./intake";
+export { buildIntakePrompt } from "./prompt";
+export {
   TEACHING_STATE_DATA_TOPIC,
   TURN_INTENTS,
   TUTOR_TOOLS,
@@ -35,12 +44,14 @@ export {
   type ToolSessionContext,
 } from "./tools";
 
-export function createTutorRuntime(): TutorRuntime {
+export function createTutorRuntime(
+  options: AiTutorRuntimeOptions = {},
+): TutorRuntime {
   const kind = process.env.BASICS_TUTOR_RUNTIME ?? "ai";
 
   if (kind === "mock" || !process.env.OPENAI_API_KEY) {
     return new DeterministicTutorRuntime();
   }
 
-  return new AiTutorRuntime();
+  return new AiTutorRuntime(options);
 }

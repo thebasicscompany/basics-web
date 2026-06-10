@@ -1,6 +1,7 @@
 import type { SessionKind } from "@basics/contracts";
 import type { SessionContext } from "./context";
-import { buildTutorPrompt } from "./prompt";
+import { INTAKE_TOOLS } from "./intake";
+import { buildIntakePrompt, buildTutorPrompt } from "./prompt";
 import { TUTOR_TOOLS, type ToolDefinition } from "./tools";
 
 /**
@@ -32,6 +33,10 @@ export const KIND_CONFIGS = {
   chat: {
     buildPrompt: buildTutorPrompt,
     tools: TUTOR_TOOLS,
+  },
+  intake: {
+    buildPrompt: buildIntakePrompt,
+    tools: INTAKE_TOOLS,
   },
 } satisfies Partial<Record<SessionKind, KindConfig>>;
 

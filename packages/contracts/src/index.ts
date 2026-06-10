@@ -16,6 +16,24 @@ const strictObject = <T extends z.ZodRawShape>(shape: T) =>
 export const TimestampSchema = z.string().datetime({ offset: true });
 export type Timestamp = z.infer<typeof TimestampSchema>;
 
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ]),
+);
+
 export const EventSequenceSchema = z.number().int().nonnegative();
 export type EventSequence = z.infer<typeof EventSequenceSchema>;
 
@@ -538,7 +556,7 @@ export const UiResponseEventSchema = sessionEventBaseSchema.extend({
   type: z.literal("ui.response"),
   refEventId: SessionEventIdSchema,
   /** JSON payload, shaped by the referenced event (choice ids, boolean, ...). */
-  value: z.unknown(),
+  value: JsonValueSchema,
 });
 export type UiResponseEvent = z.infer<typeof UiResponseEventSchema>;
 

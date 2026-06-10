@@ -78,6 +78,59 @@ export function sessionEventsToMessages(
       if (message) {
         messages.push(message);
       }
+      continue;
+    }
+
+    // Intake panel state and learner clicks: surfaced as data so the model
+    // keeps interview continuity across turns.
+    if (event.type === "intake.present_choices") {
+      const options = event.choices
+        .map((choice) => `${choice.id}: ${choice.label}`)
+        .join("; ");
+      messages.push({
+        role: "assistant",
+        content: `[Panel choices ${event.id}] ${event.prompt} (${options})`,
+      });
+      continue;
+    }
+
+    if (event.type === "intake.propose_outline") {
+      const outline = event.modules
+        .map(
+          (module) =>
+            `${module.title}: ${module.lessons
+              .map((lesson) => lesson.title)
+              .join(", ")}`,
+        )
+        .join(" | ");
+      messages.push({
+        role: "assistant",
+        content: `[Panel outline ${event.id}] "${event.title}" — ${outline}`,
+      });
+      continue;
+    }
+
+    if (event.type === "intake.request_confirmation") {
+      messages.push({
+        role: "assistant",
+        content: `[Panel confirmation ${event.id}] ${event.prompt}`,
+      });
+      continue;
+    }
+
+    if (event.type === "intake.course_created") {
+      messages.push({
+        role: "assistant",
+        content: `[Course created] "${event.title}" (${event.courseId})`,
+      });
+      continue;
+    }
+
+    if (event.type === "ui.response") {
+      messages.push({
+        role: "user",
+        content: `[Panel response to ${event.refEventId}] ${JSON.stringify(event.value)}`,
+      });
     }
   }
 

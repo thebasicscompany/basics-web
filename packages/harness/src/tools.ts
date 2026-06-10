@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { SessionEventDraft } from "@basics/contracts";
+import type { BasicsPrismaClient } from "@basics/db";
 import { createNamespacedId } from "./types";
 
 export const WHITEBOARD_SURFACE_ID = "lesson-stage";
@@ -39,6 +40,16 @@ export type ToolDefinition<Input = any> = {
   toDrafts: (input: Input, ctx: ToolSessionContext) => SessionEventDraft[];
   /** Short confirmation returned to the model after the call lands. */
   resultText: (input: Input) => string;
+  /**
+   * Optional side effect (e.g. intake's create_course) run by transports
+   * that hold a DB handle, after `toDrafts`. Returns extra event drafts
+   * describing the durable result.
+   */
+  perform?: (
+    input: Input,
+    ctx: ToolSessionContext,
+    db: BasicsPrismaClient,
+  ) => Promise<SessionEventDraft[]>;
 };
 
 function defineTool<Schema extends z.ZodTypeAny>(def: {
@@ -50,9 +61,16 @@ function defineTool<Schema extends z.ZodTypeAny>(def: {
     ctx: ToolSessionContext,
   ) => SessionEventDraft[];
   resultText: (input: z.output<Schema>) => string;
+  perform?: (
+    input: z.output<Schema>,
+    ctx: ToolSessionContext,
+    db: BasicsPrismaClient,
+  ) => Promise<SessionEventDraft[]>;
 }): ToolDefinition<z.output<Schema>> {
   return def as ToolDefinition<z.output<Schema>>;
 }
+
+export { defineTool };
 
 const pointSchema = z.object({
   x: z.number().min(0).max(100).describe("Percent of canvas width, 0-100"),
