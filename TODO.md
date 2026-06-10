@@ -151,28 +151,33 @@ surface — same event-log mechanics, different projection.
 
 **Tasks:**
 
-- [ ] `intake` kind config in the harness: curriculum-designer persona +
+- [x] `intake` kind config in the harness: curriculum-designer persona +
       tools above, plus:
       - `create_course` — zod-validated structured write: Course +
         CourseModules + Lessons (objectives, conceptKeys, estimatedMinutes),
         attaches uploaded materials to the course, marks course active
+        (implemented as the first `perform` tool — a transport-run side
+        effect on `ToolDefinition`; the web runtime passes its db handle)
       - reuse `record_mastery` — intake learns what they already know,
         tutor inherits it in lesson one
-- [ ] `intake.*` event types in `@basics/contracts` + a builder-panel
+- [x] `intake.*` event types in `@basics/contracts` + a builder-panel
       projection component (rendered from event state; new-event drafts
       already stream over the existing NDJSON turn response)
-- [ ] `/courses/new/[sessionId]` (or similar) split-view page: existing chat
-      thread components left, builder panel right
-- [ ] Home composer: "What do you want to learn?" + attachments → creates
+- [x] `/courses/new/[sessionId]` split-view page: chat thread left, builder
+      panel right (bespoke thread — assistant-ui's local runtime can't carry
+      structured `ui.response` sends; visuals match the existing thread)
+- [x] Home composer: "What do you want to learn?" + attachments → creates
       `kind: "intake"` session → split-view page
-- [ ] Uploads before a course exists: presign route is course-scoped today
-      (`/api/courses/[courseId]/uploads`) — either presign unscoped and link
-      on `create_course`, or create the draft course row up front
-- [ ] Finale: `create_course` fires → panel shows the created course →
+- [x] Uploads before a course exists: session-scoped presign/finalize
+      (`/api/sessions/[sessionId]/uploads` + `/materials`); `create_course`
+      links the session's materials to the new course
+- [x] Finale: `create_course` fires → panel shows the created course →
       redirect to course overview
-- [ ] Smoke test: scripted intake conversation (including a `ui.response`
-      event) produces a queryable course
-- [ ] After: V2's "Your courses" / home sections read `createdByLearnerId`
+- [x] Smoke test (`pnpm --filter web smoke:intake`): scripted intake
+      conversation (clicking panel prompts via `ui.response`) produces a
+      queryable course (active, owned, modules+lessons, creator enrolled)
+- [x] After: V2's "Your courses" / home sections read `createdByLearnerId`;
+      catalog hides other learners' generated courses
 
 ## Later (unblocked, not now)
 
@@ -182,6 +187,14 @@ surface — same event-log mechanics, different projection.
 - [ ] `assessment` session kind (oral exam + verdict tool) — V3.md Phase 4;
       drops into the same kind registry
 - [ ] Organizations (V3.md Phase 1) — orthogonal to all of the above
+- [ ] Voice-driven intake: the panel already projects from session events;
+      wire the voice worker's data channel to broadcast `intake.*` topics
+      and add `perform`-tool support to the LiveKit binding
+- [ ] Outline editing in the panel (reorder/rename lessons before
+      confirming) — today feedback flows through chat / reject button
+- [ ] Multi-select choice chips submit (panel currently sends single
+      selections; the schema and `ui.response` payload already support
+      multiSelect)
 
 ## Memory management (tutor sessions)
 
