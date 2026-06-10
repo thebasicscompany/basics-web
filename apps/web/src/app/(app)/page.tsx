@@ -94,14 +94,11 @@ export default async function HomePage() {
       {/* Center: greeting + composer, vertically centered. */}
       <div className="flex min-w-0 flex-1 items-center justify-center px-6 py-12">
         <div className="w-full max-w-xl -translate-y-10 space-y-6">
-          <div className="space-y-1">
-            <h1 className="font-heading text-2xl font-semibold tracking-tight">
-              {displayName
-                ? `What do you want to learn, ${displayName}?`
-                : "What do you want to learn?"}
-            </h1>
-            <p className="text-sm text-muted-foreground">{today}</p>
-          </div>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">
+            {displayName
+              ? `What do you want to learn, ${displayName}?`
+              : "What do you want to learn?"}
+          </h1>
           <IntakeComposer />
           <p className="text-xs text-muted-foreground">
             Describe a topic — and drop in any notes or readings — to get a
