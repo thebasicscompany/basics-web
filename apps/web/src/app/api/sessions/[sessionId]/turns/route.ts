@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { JsonValueSchema, SessionEventIdSchema } from "@basics/contracts";
 import { db } from "@/lib/db";
 import { getLearnerContext } from "@/lib/learner";
 import { toSession } from "@/lib/serializers";
@@ -12,9 +13,17 @@ import {
 } from "@/lib/tutor-service";
 import { createId } from "@/lib/ids";
 
-const BodySchema = z.object({
-  text: z.string().trim().min(1).max(4000),
-});
+const BodySchema = z.union([
+  z.object({ text: z.string().trim().min(1).max(4000) }),
+  // A structured panel click (choice chip, confirm button) — same turn
+  // path as typed text, but recorded as a ui.response event.
+  z.object({
+    response: z.object({
+      refEventId: SessionEventIdSchema,
+      value: JsonValueSchema,
+    }),
+  }),
+]);
 
 function truncateTopic(text: string): string {
   const normalized = text.replace(/\s+/g, " ").trim();
@@ -45,10 +54,11 @@ export async function POST(
   }
 
   const session = toSession(sessionRow);
+  const body = parsed.data;
 
   // Auto-title chat threads from the first learner message.
-  if (!sessionRow.lessonId && !sessionRow.topic) {
-    const topic = truncateTopic(parsed.data.text);
+  if ("text" in body && !sessionRow.lessonId && !sessionRow.topic) {
+    const topic = truncateTopic(body.text);
     await db.session.update({
       where: { id: session.id },
       data: { topic },
@@ -57,17 +67,28 @@ export async function POST(
   }
 
   const learnerEvents = await appendEvents(context, session.id, [
-    {
-      type: "transcript.utterance",
-      speaker: "learner",
-      modality: "text",
-      segmentId: createId("segment"),
-      text: parsed.data.text,
-      isFinal: true,
-    },
+    "text" in body
+      ? {
+          type: "transcript.utterance",
+          speaker: "learner",
+          modality: "text",
+          segmentId: createId("segment"),
+          text: body.text,
+          isFinal: true,
+        }
+      : {
+          type: "ui.response",
+          refEventId: body.response.refEventId,
+          value: body.response.value,
+        },
   ]);
 
-  const turnContext = await buildTurnContext(session, parsed.data.text);
+  const learnerText =
+    "text" in body
+      ? body.text
+      : `[Panel response to ${body.response.refEventId}] ${JSON.stringify(body.response.value)}`;
+
+  const turnContext = await buildTurnContext(session, learnerText);
   const runId = await createTutorRun(session.id);
 
   return turnStreamResponse({

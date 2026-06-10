@@ -80,6 +80,37 @@ export async function createChatSession(
 }
 
 /**
+ * Creates a course-creation interview session: no course or lesson yet —
+ * the intake agent writes the course when the interview converges.
+ */
+export async function createIntakeSession(
+  context: LearnerContext,
+  topic?: string,
+): Promise<Session> {
+  const now = new Date();
+
+  const created = await db.session.create({
+    data: {
+      id: createId("session"),
+      kind: "intake",
+      learnerId: context.learnerId,
+      workspaceId: context.workspaceId,
+      topic,
+      status: "active",
+      state: {
+        status: "active",
+        enteredAt: now.toISOString(),
+        lastEventSequence: 0,
+      },
+      startedAt: now,
+      createdAt: now,
+    },
+  });
+
+  return toSession(created);
+}
+
+/**
  * Returns the learner's active session for a lesson, creating one if none
  * exists. One active session per learner per lesson.
  */

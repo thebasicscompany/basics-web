@@ -15,7 +15,7 @@ import { appendEvents } from "@/lib/session-store";
 let runtime: ReturnType<typeof createTutorRuntime> | undefined;
 
 function getRuntime() {
-  runtime ??= createTutorRuntime();
+  runtime ??= createTutorRuntime({ db });
   return runtime;
 }
 
