@@ -64,6 +64,7 @@ export async function POST(
       id: createId("context"),
       learnerId: context.learnerId,
       workspaceId: context.workspaceId,
+      courseId,
       sourceType: "upload",
       label: filename,
       capturedAt: now,
@@ -71,7 +72,6 @@ export async function POST(
       retention: "persistent",
       consent: "granted",
       content: {
-        courseId,
         s3Key,
         mimeType,
         size,

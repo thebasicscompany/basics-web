@@ -60,6 +60,7 @@ export async function createChatSession(
   const created = await db.session.create({
     data: {
       id: createId("session"),
+      kind: "chat",
       learnerId: context.learnerId,
       workspaceId: context.workspaceId,
       courseId,
@@ -108,6 +109,7 @@ export async function getOrCreateLessonSession(
   const created = await db.session.create({
     data: {
       id: createId("session"),
+      kind: "lesson",
       learnerId: context.learnerId,
       workspaceId: context.workspaceId,
       courseId,

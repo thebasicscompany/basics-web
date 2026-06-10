@@ -60,6 +60,7 @@ async function ensureSession() {
   return db.session.create({
     data: {
       id: id("session"),
+      kind: "lesson",
       learnerId: learner.id,
       workspaceId: learner.personalWorkspace?.id,
       courseId: lesson.courseId,

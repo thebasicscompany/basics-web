@@ -28,7 +28,11 @@ export default async function CourseMaterialsPage({
       select: { id: true, title: true },
     }),
     db.contextSource.findMany({
-      where: { learnerId: context.learnerId, sourceType: "upload" },
+      where: {
+        learnerId: context.learnerId,
+        sourceType: "upload",
+        courseId,
+      },
       orderBy: { createdAt: "desc" },
     }),
   ]);
@@ -37,24 +41,19 @@ export default async function CourseMaterialsPage({
     notFound();
   }
 
-  const materials = materialRows
-    .filter((row) => {
-      const content = row.content as { courseId?: string } | null;
-      return content?.courseId === courseId;
-    })
-    .map((row) => {
-      const content = row.content as {
-        mimeType?: string;
-        size?: number;
-      };
-      return {
-        id: row.id,
-        label: row.label,
-        mimeType: content.mimeType ?? null,
-        size: content.size ?? null,
-        createdAt: row.createdAt.toISOString(),
-      };
-    });
+  const materials = materialRows.map((row) => {
+    const content = row.content as {
+      mimeType?: string;
+      size?: number;
+    };
+    return {
+      id: row.id,
+      label: row.label,
+      mimeType: content.mimeType ?? null,
+      size: content.size ?? null,
+      createdAt: row.createdAt.toISOString(),
+    };
+  });
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-6 pt-24 pb-12">

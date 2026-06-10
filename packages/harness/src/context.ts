@@ -31,11 +31,11 @@ export type SessionContext = {
 };
 
 /**
- * Derives the session kind. Until the schema grows a `kind` column,
- * lesson-vs-chat is inferred from `lessonId`.
+ * Resolves the session kind: the stored `kind` column wins; sessions from
+ * before the column existed fall back to lesson-vs-chat via `lessonId`.
  */
 export function sessionKindOf(session: Session): SessionKind {
-  return session.lessonId ? "lesson" : "chat";
+  return session.kind ?? (session.lessonId ? "lesson" : "chat");
 }
 
 const iso = (value: Date) => value.toISOString();
@@ -43,6 +43,7 @@ const iso = (value: Date) => value.toISOString();
 export function toSession(row: SessionRow): Session {
   return {
     id: row.id,
+    kind: row.kind as SessionKind,
     learnerId: row.learnerId,
     workspaceId: row.workspaceId ?? undefined,
     courseId: row.courseId ?? undefined,
@@ -69,6 +70,7 @@ export function toCourse(row: CourseRow): Course {
     moduleIds: [],
     lessonIds: [],
     status: row.status as Course["status"],
+    createdByLearnerId: row.createdByLearnerId ?? undefined,
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),
   };
@@ -126,14 +128,19 @@ export async function loadSessionContext(
 }
 
 /**
- * Materials available to this turn: sources attached to the session plus the
- * learner's course-level uploads (Materials tab) for the session's course.
+ * Materials available to this turn:
+ * (course-scoped uploads) ∪ (lesson-scoped uploads) ∪ (session-attached
+ * learner uploads).
  */
 async function loadSessionMaterials(
   db: BasicsPrismaClient,
   session: Session,
 ): Promise<SessionMaterial[]> {
-  if (session.contextSourceIds.length === 0 && !session.courseId) {
+  if (
+    session.contextSourceIds.length === 0 &&
+    !session.courseId &&
+    !session.lessonId
+  ) {
     return [];
   }
 
@@ -145,16 +152,8 @@ async function loadSessionMaterials(
         ...(session.contextSourceIds.length > 0
           ? [{ id: { in: session.contextSourceIds } }]
           : []),
-        ...(session.courseId
-          ? [
-              {
-                content: {
-                  path: ["courseId"],
-                  equals: session.courseId,
-                },
-              },
-            ]
-          : []),
+        ...(session.courseId ? [{ courseId: session.courseId }] : []),
+        ...(session.lessonId ? [{ lessonId: session.lessonId }] : []),
       ],
     },
     orderBy: { createdAt: "desc" },

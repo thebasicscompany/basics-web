@@ -1,3 +1,4 @@
+import type { SessionKind } from "@basics/contracts";
 import type { SessionContext } from "./context";
 import { buildTutorPrompt } from "./prompt";
 import { TUTOR_TOOLS, type ToolDefinition } from "./tools";
@@ -7,7 +8,7 @@ import { TUTOR_TOOLS, type ToolDefinition } from "./tools";
  * surface, and (eventually) completion behavior; the modality only changes
  * style rules, never behavior.
  */
-export type SessionKind = "lesson" | "chat" | "intake";
+export type { SessionKind };
 
 export type Modality = "voice" | "text";
 

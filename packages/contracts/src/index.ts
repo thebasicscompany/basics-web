@@ -101,6 +101,8 @@ export const CourseSchema = strictObject({
   moduleIds: z.array(CourseModuleIdSchema).default([]),
   lessonIds: z.array(LessonIdSchema).default([]),
   status: z.enum(["draft", "active", "archived"]),
+  /** Learner who generated this course (unset for the seeded catalog). */
+  createdByLearnerId: LearnerIdSchema.optional(),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema.optional(),
 });
@@ -151,8 +153,13 @@ export const SessionStateSchema = strictObject({
 });
 export type SessionState = z.infer<typeof SessionStateSchema>;
 
+export const SessionKindSchema = z.enum(["lesson", "chat", "intake"]);
+export type SessionKind = z.infer<typeof SessionKindSchema>;
+
 export const SessionSchema = strictObject({
   id: SessionIdSchema,
+  /** What the session is for; decides persona, tools, and completion. */
+  kind: SessionKindSchema.optional(),
   learnerId: LearnerIdSchema,
   workspaceId: WorkspaceIdSchema.optional(),
   courseId: CourseIdSchema.optional(),
@@ -371,6 +378,10 @@ export const ContextSourceSchema = strictObject({
   sessionId: SessionIdSchema.optional(),
   learnerId: LearnerIdSchema,
   workspaceId: WorkspaceIdSchema.optional(),
+  /** Course this material is scoped to (course Materials tab uploads). */
+  courseId: CourseIdSchema.optional(),
+  /** Lesson this material is attached to (lesson attachments). */
+  lessonId: LessonIdSchema.optional(),
   sourceType: z.enum([
     "lesson",
     "learner_supplied",

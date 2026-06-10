@@ -29,6 +29,7 @@ export function toCourse(row: CourseRow): Course {
     moduleIds: [],
     lessonIds: [],
     status: row.status as Course["status"],
+    createdByLearnerId: row.createdByLearnerId ?? undefined,
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),
   };
@@ -69,6 +70,7 @@ export function toLesson(row: LessonRow): Lesson {
 export function toSession(row: SessionRow): Session {
   return {
     id: row.id,
+    kind: row.kind as Session["kind"],
     learnerId: row.learnerId,
     workspaceId: row.workspaceId ?? undefined,
     courseId: row.courseId ?? undefined,

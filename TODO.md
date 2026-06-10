@@ -100,18 +100,18 @@ persist.ts   persistTurnEvents() — sequenced append (from web session-store)
 
 ## Step 2 — Schema evolution (one migration)
 
-- [ ] `Session.kind`: `"lesson" | "chat" | "intake"` — today chat-vs-lesson
+- [x] `Session.kind`: `"lesson" | "chat" | "intake"` — today chat-vs-lesson
       is inferred from `lessonId == null`, which breaks at kind #3.
       Backfill: `lessonId != null → "lesson"`, else `"chat"`
-- [ ] `ContextSource.courseId` + `ContextSource.lessonId` real columns —
+- [x] `ContextSource.courseId` + `ContextSource.lessonId` real columns —
       kills the JSON hack (`content.path: ["courseId"]` filtering in
       `loadSessionMaterials` and the materials page). Lesson attachments =
       ContextSource with `lessonId`, no new table. Backfill from `content`
       JSON; update upload finalize route + materials queries
-- [ ] `Course.createdByLearnerId` — ownership for generated courses
+- [x] `Course.createdByLearnerId` — ownership for generated courses
       ("Your courses" vs seeded catalog); generated courses use existing
       `status` for `draft → active`
-- [ ] `loadSessionContext` materials become:
+- [x] `loadSessionContext` materials become:
       (course-scoped) ∪ (lesson-scoped) ∪ (session-attached learner uploads)
 
 ## Step 3 — Course generation (intake sessions, split-view builder)

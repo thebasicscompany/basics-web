@@ -21,6 +21,7 @@ model Learner {
   masteryObservations MasteryObservation[]
   summaries           Summary[]
   enrollments         Enrollment[]
+  createdCourses      Course[]             @relation("CourseCreator")
 
   @@map("learners")
 }
@@ -46,20 +47,24 @@ model Workspace {
 }
 
 model Course {
-  id          String         @id
-  slug        String         @unique
-  title       String
-  description String?
-  level       String?
-  tags        String[]       @default([])
-  status      String
-  createdAt   DateTime       @map("created_at")
-  updatedAt   DateTime       @updatedAt @map("updated_at")
-  modules     CourseModule[]
-  lessons     Lesson[]
-  sessions    Session[]
-  enrollments Enrollment[]
+  id                 String          @id
+  slug               String          @unique
+  title              String
+  description        String?
+  level              String?
+  tags               String[]        @default([])
+  status             String
+  createdByLearnerId String?         @map("created_by_learner_id")
+  createdAt          DateTime        @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+  createdByLearner   Learner?        @relation("CourseCreator", fields: [createdByLearnerId], references: [id], onDelete: SetNull)
+  modules            CourseModule[]
+  lessons            Lesson[]
+  sessions           Session[]
+  enrollments        Enrollment[]
+  contextSources     ContextSource[]
 
+  @@index([createdByLearnerId])
   @@map("courses")
 }
 
@@ -118,6 +123,7 @@ model Lesson {
   sessions            Session[]
   masteryObservations MasteryObservation[]
   checkpoints         LessonCheckpointRecord[]
+  contextSources      ContextSource[]
 
   @@unique([courseId, slug])
   @@index([courseId, orderIndex])
@@ -127,6 +133,7 @@ model Lesson {
 
 model Session {
   id                  String                   @id
+  kind                String                   @default("chat")
   learnerId           String                   @map("learner_id")
   workspaceId         String?                  @map("workspace_id")
   courseId            String?                  @map("course_id")
@@ -237,6 +244,8 @@ model ContextSource {
   sessionId   String?       @map("session_id")
   learnerId   String        @map("learner_id")
   workspaceId String?       @map("workspace_id")
+  courseId    String?       @map("course_id")
+  lessonId    String?       @map("lesson_id")
   sourceType  String        @map("source_type")
   label       String
   capturedAt  DateTime?     @map("captured_at")
@@ -248,10 +257,14 @@ model ContextSource {
   session     Session?      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   learner     Learner       @relation(fields: [learnerId], references: [id], onDelete: Restrict)
   workspace   Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  course      Course?       @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  lesson      Lesson?       @relation(fields: [lessonId], references: [id], onDelete: SetNull)
 
   @@index([learnerId, createdAt])
   @@index([workspaceId, createdAt])
   @@index([sessionId])
+  @@index([courseId])
+  @@index([lessonId])
   @@map("context_sources")
 }
 

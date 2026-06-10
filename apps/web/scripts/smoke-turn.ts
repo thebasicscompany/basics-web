@@ -106,6 +106,7 @@ async function main() {
   await db.session.create({
     data: {
       id: sessionId,
+      kind: "lesson",
       learnerId: learner.id,
       workspaceId: learner.personalWorkspace?.id,
       courseId: lesson.courseId,

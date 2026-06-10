@@ -108,6 +108,7 @@ async function main() {
   session ??= await db.session.create({
     data: {
       id: `session_smoke${Date.now().toString(36)}`,
+      kind: "lesson",
       learnerId: learner.id,
       workspaceId: learner.personalWorkspace?.id,
       courseId: lesson.courseId,

@@ -113,11 +113,11 @@ async function main() {
   const row = await db.contextSource.findUniqueOrThrow({
     where: { id: material.id },
   });
-  const content = row.content as { extractedText?: string; courseId?: string };
+  const content = row.content as { extractedText?: string };
 
   console.log("\nResults:");
   console.log(`  sourceType:     ${row.sourceType}`);
-  console.log(`  courseId match: ${content.courseId === course.id}`);
+  console.log(`  courseId match: ${row.courseId === course.id}`);
   console.log(`  extractedText:  ${content.extractedText}`);
 
   console.log("5. Deleting material...");
@@ -135,7 +135,7 @@ async function main() {
 
   if (
     row.sourceType !== "upload" ||
-    content.courseId !== course.id ||
+    row.courseId !== course.id ||
     content.extractedText !== fileBody ||
     gone !== null
   ) {
