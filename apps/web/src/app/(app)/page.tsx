@@ -1,20 +1,15 @@
 import Link from "next/link";
 import {
   ArrowRightIcon,
+  BooksIcon,
   BroadcastIcon,
   ChatCircleIcon,
+  CompassIcon,
 } from "@phosphor-icons/react/dist/ssr";
 
 import { EnrollButton } from "@/components/enroll-button";
 import { IntakeComposer } from "@/components/intake/intake-composer";
-import {
-  PageHeader,
-  PageHeaderContent,
-  PageHeaderTitle,
-} from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { db } from "@/lib/db";
 import { getEnrolledCourses } from "@/lib/enrollments";
 import { requireLearnerContext } from "@/lib/learner";
@@ -61,7 +56,7 @@ export default async function HomePage() {
   const jumpBackIn = [
     ...recentSessions.filter((session) => session.lessonId),
     ...recentSessions.filter((session) => !session.lessonId),
-  ].slice(0, 5);
+  ].slice(0, 4);
 
   // Progress proxy until real progress tracking exists: lessons touched.
   const lessonProgress = await db.session.groupBy({
@@ -83,173 +78,203 @@ export default async function HomePage() {
   }
 
   const yourCourseIds = new Set(yourCourses.map((course) => course.id));
-  const unenrolled = allCourses.filter(
-    (course) => !yourCourseIds.has(course.id),
-  );
+  const unenrolled = allCourses
+    .filter((course) => !yourCourseIds.has(course.id))
+    .slice(0, 4);
 
   const displayName = context.displayName?.split(/\s+/)[0];
+  const today = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
 
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 px-6 pt-24 pb-12">
-      <PageHeader className="mb-6">
-        <PageHeaderContent>
-          <PageHeaderTitle>
-            {displayName ? `Welcome back, ${displayName}` : "Welcome back"}
-          </PageHeaderTitle>
-        </PageHeaderContent>
-      </PageHeader>
-
-      <div className="space-y-8">
-        <section>
+    <main className="flex min-h-0 flex-1">
+      {/* Center: greeting + composer, vertically centered. */}
+      <div className="flex min-w-0 flex-1 items-center justify-center px-6 py-12">
+        <div className="w-full max-w-xl -translate-y-10 space-y-6">
+          <div className="space-y-1">
+            <h1 className="font-heading text-2xl font-semibold tracking-tight">
+              {displayName
+                ? `What do you want to learn, ${displayName}?`
+                : "What do you want to learn?"}
+            </h1>
+            <p className="text-sm text-muted-foreground">{today}</p>
+          </div>
           <IntakeComposer />
-        </section>
-
-        {jumpBackIn.length > 0 ? (
-          <section>
-            <h2 className="mb-3 font-heading text-lg font-medium tracking-tight">
-              Jump back in
-            </h2>
-            <div className="divide-y rounded-xl border bg-card">
-              {jumpBackIn.map((session) => {
-                const isLesson = Boolean(session.lessonId);
-                const href = isLesson
-                  ? `/courses/${session.courseId}/lessons/${session.lessonId}/learn`
-                  : `/courses/${session.courseId}/chats/${session.id}`;
-                const title = isLesson
-                  ? (session.lesson?.title ?? "Lesson")
-                  : (session.topic ?? "New chat");
-
-                return (
-                  <div
-                    key={session.id}
-                    className="flex items-center gap-3 px-4 py-3"
-                  >
-                    {isLesson ? (
-                      <BroadcastIcon className="size-4 shrink-0 text-primary" />
-                    ) : (
-                      <ChatCircleIcon className="size-4 shrink-0 text-muted-foreground" />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{title}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {session.course?.title}
-                        {isLesson ? " · Live lesson" : " · Chat"}
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant={isLesson ? "default" : "outline"}
-                      className="shrink-0"
-                      render={<Link href={href} />}
-                    >
-                      {isLesson ? "Resume lesson" : "Open chat"}
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        ) : null}
-
-        {yourCourses.length > 0 ? (
-          <section>
-            <h2 className="mb-3 font-heading text-lg font-medium tracking-tight">
-              Your courses
-            </h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {yourCourses.map((course) => {
-                const total = course.lessons.length;
-                const touched = Math.min(
-                  touchedByCourse.get(course.id) ?? 0,
-                  total,
-                );
-                const percent =
-                  total > 0 ? Math.round((touched / total) * 100) : 0;
-
-                return (
-                  <Link
-                    key={course.id}
-                    href={`/courses/${course.id}`}
-                    className="group"
-                  >
-                    <Card className="h-full shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] transition-all group-hover:-translate-y-0.5 group-hover:border-primary/35">
-                      <CardContent className="space-y-3 py-4">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="font-heading text-sm leading-snug font-medium tracking-tight">
-                            {course.title}
-                          </p>
-                          <ArrowRightIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full bg-primary transition-all"
-                              style={{ width: `${percent}%` }}
-                            />
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {touched} of {total} lessons started
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        ) : null}
-
-        {unenrolled.length > 0 ? (
-          <section>
-            <h2 className="mb-3 font-heading text-lg font-medium tracking-tight">
-              Start something new
-            </h2>
-            <div className="divide-y rounded-xl border bg-card">
-              {unenrolled.map((course) => (
-                <div
-                  key={course.id}
-                  className="flex items-center gap-3 px-4 py-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-2 truncate text-sm font-medium">
-                      <Link
-                        href={`/courses/${course.id}`}
-                        className="hover:underline"
-                      >
-                        {course.title}
-                      </Link>
-                      {course.level ? (
-                        <Badge variant="secondary" className="capitalize">
-                          {course.level}
-                        </Badge>
-                      ) : null}
-                    </p>
-                    {course.description ? (
-                      <p className="truncate text-xs text-muted-foreground">
-                        {course.description}
-                      </p>
-                    ) : null}
-                  </div>
-                  <EnrollButton courseId={course.id} enrolled={false} />
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {jumpBackIn.length === 0 && yourCourses.length === 0 ? (
-          <section className="flex flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-16 text-center">
-            <p className="font-heading text-lg font-medium tracking-tight">
-              Welcome to Basics
-            </p>
-            <p className="max-w-sm text-sm text-muted-foreground">
-              Tell us what you want to learn above and we&apos;ll build you a
-              course, or enroll in one below.
-            </p>
-          </section>
-        ) : null}
+          <p className="text-xs text-muted-foreground">
+            Describe a topic — and drop in any notes or readings — to get a
+            course built just for you.
+          </p>
+        </div>
       </div>
+
+      {/* Right rail: at a glance. */}
+      <aside className="hidden w-90 shrink-0 overflow-y-auto border-l px-5 py-8 lg:block">
+        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          At a glance
+        </p>
+        <h2 className="mt-1 mb-5 font-heading text-lg font-medium tracking-tight">
+          {today}
+        </h2>
+
+        <div className="space-y-4">
+          <RailSection icon={<BroadcastIcon />} label="Continue">
+            {jumpBackIn.length > 0 ? (
+              <div className="divide-y">
+                {jumpBackIn.map((session) => {
+                  const isLesson = Boolean(session.lessonId);
+                  const href = isLesson
+                    ? `/courses/${session.courseId}/lessons/${session.lessonId}/learn`
+                    : `/courses/${session.courseId}/chats/${session.id}`;
+                  const title = isLesson
+                    ? (session.lesson?.title ?? "Lesson")
+                    : (session.topic ?? "New chat");
+
+                  return (
+                    <Link
+                      key={session.id}
+                      href={href}
+                      className="group flex items-center gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-accent/50"
+                    >
+                      {isLesson ? (
+                        <BroadcastIcon className="size-4 shrink-0 text-primary" />
+                      ) : (
+                        <ChatCircleIcon className="size-4 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">
+                          {title}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {session.course?.title}
+                          {isLesson ? " · Live lesson" : " · Chat"}
+                        </span>
+                      </span>
+                      <ArrowRightIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <RailEmpty>
+                No sessions yet — ask for a course on the left and your
+                lessons will land here.
+              </RailEmpty>
+            )}
+          </RailSection>
+
+          <RailSection icon={<BooksIcon />} label="Your courses">
+            {yourCourses.length > 0 ? (
+              <div className="divide-y">
+                {yourCourses.map((course) => {
+                  const total = course.lessons.length;
+                  const touched = Math.min(
+                    touchedByCourse.get(course.id) ?? 0,
+                    total,
+                  );
+                  const percent =
+                    total > 0 ? Math.round((touched / total) * 100) : 0;
+
+                  return (
+                    <Link
+                      key={course.id}
+                      href={`/courses/${course.id}`}
+                      className="block space-y-1.5 px-3.5 py-2.5 transition-colors hover:bg-accent/50"
+                    >
+                      <span className="block truncate text-sm font-medium">
+                        {course.title}
+                      </span>
+                      <span className="block h-1.5 overflow-hidden rounded-full bg-muted">
+                        <span
+                          className="block h-full rounded-full bg-primary transition-all"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        {touched} of {total} lessons started
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <RailEmpty>
+                Courses you create or enroll in will show up here.
+              </RailEmpty>
+            )}
+          </RailSection>
+
+          {unenrolled.length > 0 ? (
+            <RailSection icon={<CompassIcon />} label="Start something new">
+              <div className="divide-y">
+                {unenrolled.map((course) => (
+                  <div
+                    key={course.id}
+                    className="flex items-center gap-2.5 px-3.5 py-2.5"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2 truncate text-sm font-medium">
+                        <Link
+                          href={`/courses/${course.id}`}
+                          className="truncate hover:underline"
+                        >
+                          {course.title}
+                        </Link>
+                        {course.level ? (
+                          <Badge variant="secondary" className="capitalize">
+                            {course.level}
+                          </Badge>
+                        ) : null}
+                      </span>
+                      {course.description ? (
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {course.description}
+                        </span>
+                      ) : null}
+                    </span>
+                    <EnrollButton courseId={course.id} enrolled={false} />
+                  </div>
+                ))}
+              </div>
+              <Link
+                href="/courses"
+                className="flex items-center gap-1 border-t px-3.5 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Browse all courses
+                <ArrowRightIcon className="size-3" />
+              </Link>
+            </RailSection>
+          ) : null}
+        </div>
+      </aside>
     </main>
+  );
+}
+
+function RailSection({
+  icon,
+  label,
+  children,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-xl border bg-card">
+      <div className="flex items-center gap-1.5 border-b px-3.5 py-2 text-xs font-medium text-muted-foreground [&_svg]:size-3.5">
+        {icon}
+        {label}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function RailEmpty({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="px-3.5 py-4 text-xs text-muted-foreground">{children}</p>
   );
 }
