@@ -460,11 +460,95 @@ export type LessonCheckpointReachedEvent = z.infer<
   typeof LessonCheckpointReachedEventSchema
 >;
 
+export const IntakeChoiceSchema = strictObject({
+  id: nonEmptyStringSchema,
+  label: nonEmptyStringSchema,
+  description: nonEmptyStringSchema.optional(),
+});
+export type IntakeChoice = z.infer<typeof IntakeChoiceSchema>;
+
+export const IntakeOutlineLessonSchema = strictObject({
+  title: nonEmptyStringSchema,
+  summary: nonEmptyStringSchema.optional(),
+  objectives: z.array(nonEmptyStringSchema).default([]),
+  conceptKeys: z.array(nonEmptyStringSchema).default([]),
+  estimatedMinutes: z.number().int().positive().optional(),
+});
+export type IntakeOutlineLesson = z.infer<typeof IntakeOutlineLessonSchema>;
+
+export const IntakeOutlineModuleSchema = strictObject({
+  title: nonEmptyStringSchema,
+  summary: nonEmptyStringSchema.optional(),
+  lessons: z.array(IntakeOutlineLessonSchema).min(1),
+});
+export type IntakeOutlineModule = z.infer<typeof IntakeOutlineModuleSchema>;
+
+/**
+ * Intake (course-creation interview) events: the builder panel is a pure
+ * projection over these, exactly like the whiteboard over `visual.*`.
+ */
+export const IntakeEventSchema = z.discriminatedUnion("type", [
+  sessionEventBaseSchema.extend({
+    type: z.literal("intake.present_choices"),
+    prompt: nonEmptyStringSchema,
+    multiSelect: z.boolean().optional(),
+    choices: z.array(IntakeChoiceSchema).min(1),
+  }),
+  sessionEventBaseSchema.extend({
+    type: z.literal("intake.propose_outline"),
+    title: nonEmptyStringSchema,
+    description: nonEmptyStringSchema.optional(),
+    modules: z.array(IntakeOutlineModuleSchema).min(1),
+  }),
+  sessionEventBaseSchema.extend({
+    type: z.literal("intake.request_confirmation"),
+    prompt: nonEmptyStringSchema,
+    confirmLabel: nonEmptyStringSchema.optional(),
+    rejectLabel: nonEmptyStringSchema.optional(),
+  }),
+  sessionEventBaseSchema.extend({
+    type: z.literal("intake.set_progress"),
+    sections: z
+      .array(
+        strictObject({
+          id: nonEmptyStringSchema,
+          label: nonEmptyStringSchema,
+          status: z.enum(["pending", "active", "done"]),
+          summary: nonEmptyStringSchema.optional(),
+        }),
+      )
+      .min(1),
+  }),
+  sessionEventBaseSchema.extend({
+    type: z.literal("intake.course_created"),
+    courseId: CourseIdSchema,
+    title: nonEmptyStringSchema,
+    moduleCount: z.number().int().nonnegative(),
+    lessonCount: z.number().int().nonnegative(),
+  }),
+]);
+export type IntakeEvent = z.infer<typeof IntakeEventSchema>;
+
+/**
+ * A structured learner response produced by clicking a panel affordance
+ * (choice chip, confirm button, outline edit). Flows through the same turn
+ * endpoint as typed text; `refEventId` points at the event it answers.
+ */
+export const UiResponseEventSchema = sessionEventBaseSchema.extend({
+  type: z.literal("ui.response"),
+  refEventId: SessionEventIdSchema,
+  /** JSON payload, shaped by the referenced event (choice ids, boolean, ...). */
+  value: z.unknown(),
+});
+export type UiResponseEvent = z.infer<typeof UiResponseEventSchema>;
+
 export const SessionEventSchema = z.discriminatedUnion("type", [
   SessionStateChangedEventSchema,
   ...TranscriptEventSchema.options,
   ...TutorEventSchema.options,
   ...VisualActionSchema.options,
+  ...IntakeEventSchema.options,
+  UiResponseEventSchema,
   ContextSourceAddedEventSchema,
   MasteryObservedEventSchema,
   LessonCheckpointReachedEventSchema,
