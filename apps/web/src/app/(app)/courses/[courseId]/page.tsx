@@ -8,6 +8,7 @@ import {
   PageHeader,
   PageHeaderActions,
   PageHeaderContent,
+  PageHeaderMeta,
   PageHeaderTitle,
 } from "@/components/page-header";
 import {
@@ -26,7 +27,7 @@ export default async function CourseWorkspacePage({
   const { courseId } = await params;
   const context = await requireLearnerContext();
 
-  const [course, latestLessonSession] = await Promise.all([
+  const [course, latestLessonSession, progressRows] = await Promise.all([
     db.course.findUnique({
       where: { id: courseId },
       include: {
@@ -49,23 +50,42 @@ export default async function CourseWorkspacePage({
       orderBy: { updatedAt: "desc" },
       include: { lesson: { select: { id: true, title: true } } },
     }),
+    db.lessonProgress.findMany({
+      where: { learnerId: context.learnerId, courseId },
+      select: { lessonId: true, status: true },
+    }),
   ]);
 
   if (!course) {
     notFound();
   }
 
+  const progressByLesson = new Map(
+    progressRows.map((row) => [
+      row.lessonId,
+      row.status as "in_progress" | "completed",
+    ]),
+  );
+
+  const toSyllabusLesson = (lesson: {
+    id: string;
+    title: string;
+    summary: string | null;
+    estimatedMinutes: number | null;
+  }) => ({
+    id: lesson.id,
+    title: lesson.title,
+    summary: lesson.summary,
+    estimatedMinutes: lesson.estimatedMinutes,
+    progress: progressByLesson.get(lesson.id) ?? null,
+  });
+
   const sections: SyllabusSection[] = [
     ...course.modules.map((module) => ({
       key: module.id,
       title: module.title,
       summary: module.summary,
-      lessons: module.lessons.map((lesson) => ({
-        id: lesson.id,
-        title: lesson.title,
-        summary: lesson.summary,
-        estimatedMinutes: lesson.estimatedMinutes,
-      })),
+      lessons: module.lessons.map(toSyllabusLesson),
     })),
     ...(course.lessons.length > 0
       ? [
@@ -73,16 +93,23 @@ export default async function CourseWorkspacePage({
             key: "unassigned",
             title: "Lessons",
             summary: null,
-            lessons: course.lessons.map((lesson) => ({
-              id: lesson.id,
-              title: lesson.title,
-              summary: lesson.summary,
-              estimatedMinutes: lesson.estimatedMinutes,
-            })),
+            lessons: course.lessons.map(toSyllabusLesson),
           },
         ]
       : []),
   ];
+
+  const totalLessons = sections.reduce(
+    (count, section) => count + section.lessons.length,
+    0,
+  );
+  const completedLessons = sections.reduce(
+    (count, section) =>
+      count +
+      section.lessons.filter((lesson) => lesson.progress === "completed")
+        .length,
+    0,
+  );
 
   const firstLesson = sections.find((section) => section.lessons.length > 0)
     ?.lessons[0];
@@ -108,6 +135,11 @@ export default async function CourseWorkspacePage({
             <span className="truncate text-foreground">{course.title}</span>
           </PageBreadcrumb>
           <PageHeaderTitle>Overview</PageHeaderTitle>
+          {totalLessons > 0 ? (
+            <PageHeaderMeta>
+              {completedLessons} of {totalLessons} lessons completed
+            </PageHeaderMeta>
+          ) : null}
         </PageHeaderContent>
         {nextLesson ? (
           <PageHeaderActions>

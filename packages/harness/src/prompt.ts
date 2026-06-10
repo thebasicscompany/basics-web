@@ -22,6 +22,13 @@ export function buildTutorPrompt(
     "the current topic";
   const objectives = context.lesson?.objectives ?? [];
   const concepts = context.lesson?.conceptKeys ?? [];
+  const lessonAlreadyComplete =
+    context.lesson != null &&
+    context.events.some(
+      (event) =>
+        event.type === "lesson.completed" &&
+        event.lessonId === context.lesson?.id,
+    );
 
   return [
     ...personaSection(modality),
@@ -39,6 +46,16 @@ export function buildTutorPrompt(
     "- Call update_teaching_state when the focus, current question, or suggested exercise changes.",
     "- Call record_mastery when the learner demonstrates clear understanding or a clear misconception about a concept.",
     "- Call reach_checkpoint only when the learner explicitly indicates they completed the lesson goal.",
+    ...(context.lesson
+      ? lessonAlreadyComplete
+        ? [
+            "- This lesson was already completed on a previous visit. Treat this session as review or deepening; do not call mark_lesson_complete again.",
+          ]
+        : [
+            "- The lesson counts as complete only when the learner has DEMONSTRATED each objective: explained it back in their own words or applied it correctly. When that is true for every objective, call mark_lesson_complete with per-objective evidence.",
+            "- Never mark the lesson complete just because the learner says they understand or wants to stop. If they end early, acknowledge what is left for next time instead.",
+          ]
+      : []),
     ...(modality === "text"
       ? [
           "- Call request_screen_context only when seeing the learner's screen would materially help, and explain why. The learner must approve it; never claim ongoing monitoring.",

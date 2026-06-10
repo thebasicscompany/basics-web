@@ -13,6 +13,7 @@ model Learner {
   clerkUserId         String?              @unique @map("clerk_user_id")
   displayName         String?              @map("display_name")
   goals               String[]             @default([])
+  preferences         Json                 @default("{}")
   createdAt           DateTime             @map("created_at")
   updatedAt           DateTime             @updatedAt @map("updated_at")
   personalWorkspace   Workspace?           @relation("PersonalWorkspaceOwner")
@@ -22,6 +23,7 @@ model Learner {
   summaries           Summary[]
   enrollments         Enrollment[]
   createdCourses      Course[]             @relation("CourseCreator")
+  lessonProgress      LessonProgress[]
 
   @@map("learners")
 }
@@ -63,6 +65,7 @@ model Course {
   sessions           Session[]
   enrollments        Enrollment[]
   contextSources     ContextSource[]
+  lessonProgress     LessonProgress[]
 
   @@index([createdByLearnerId])
   @@map("courses")
@@ -124,6 +127,7 @@ model Lesson {
   masteryObservations MasteryObservation[]
   checkpoints         LessonCheckpointRecord[]
   contextSources      ContextSource[]
+  progress            LessonProgress[]
 
   @@unique([courseId, slug])
   @@index([courseId, orderIndex])
@@ -146,6 +150,7 @@ model Session {
   contextSourceIds    String[]                 @default([]) @map("context_source_ids")
   startedAt           DateTime?                @map("started_at")
   endedAt             DateTime?                @map("ended_at")
+  pinnedAt            DateTime?                @map("pinned_at")
   createdAt           DateTime                 @map("created_at")
   updatedAt           DateTime                 @updatedAt @map("updated_at")
   learner             Learner                  @relation(fields: [learnerId], references: [id], onDelete: Restrict)
@@ -314,6 +319,26 @@ model LessonCheckpointRecord {
   @@index([workspaceId, occurredAt])
   @@index([sessionId])
   @@map("lesson_checkpoint_records")
+}
+
+model LessonProgress {
+  id           String    @id
+  learnerId    String    @map("learner_id")
+  lessonId     String    @map("lesson_id")
+  courseId     String    @map("course_id")
+  status       String // "in_progress" | "completed"
+  completedAt  DateTime? @map("completed_at")
+  totalSeconds Int       @default(0) @map("total_seconds")
+  sessionCount Int       @default(0) @map("session_count")
+  createdAt    DateTime  @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  learner      Learner   @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  lesson       Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  course       Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([learnerId, lessonId])
+  @@index([learnerId, courseId])
+  @@map("lesson_progress")
 }
 
 model Summary {

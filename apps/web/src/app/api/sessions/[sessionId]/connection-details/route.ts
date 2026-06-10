@@ -4,7 +4,7 @@ import {
   RoomConfiguration,
 } from "@livekit/protocol";
 import { AccessToken, type VideoGrant } from "livekit-server-sdk";
-import { getLearnerContext } from "@/lib/learner";
+import { getLearnerContext, getLearnerPreferences } from "@/lib/learner";
 import { getOwnedSession } from "@/lib/session-store";
 
 export const revalidate = 0;
@@ -44,6 +44,8 @@ export async function POST(
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
 
+  const preferences = await getLearnerPreferences(context.learnerId);
+
   const token = new AccessToken(apiKey, apiSecret, {
     identity: context.learnerId,
     name: context.displayName ?? "Learner",
@@ -63,7 +65,10 @@ export async function POST(
     agents: [
       new RoomAgentDispatch({
         agentName: AGENT_NAME,
-        metadata: JSON.stringify({ sessionId }),
+        metadata: JSON.stringify({
+          sessionId,
+          voiceMode: preferences.voiceMode,
+        }),
       }),
     ],
   });

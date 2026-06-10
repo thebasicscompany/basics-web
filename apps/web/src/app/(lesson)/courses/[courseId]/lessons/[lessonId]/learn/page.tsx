@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { LessonRoom } from "@/components/session/lesson-room";
 import { db } from "@/lib/db";
-import { requireLearnerContext } from "@/lib/learner";
+import { getLearnerPreferences, requireLearnerContext } from "@/lib/learner";
 import { toLesson } from "@/lib/serializers";
 import {
   getOrCreateLessonSession,
@@ -23,13 +23,17 @@ export default async function LearnPage({
   }
 
   const session = await getOrCreateLessonSession(context, courseId, lessonId);
-  const events = await getSessionEvents(session.id);
+  const [events, preferences] = await Promise.all([
+    getSessionEvents(session.id),
+    getLearnerPreferences(context.learnerId),
+  ]);
 
   return (
     <LessonRoom
       session={session}
       lesson={toLesson(lessonRow)}
       initialEvents={events}
+      preferences={preferences}
     />
   );
 }

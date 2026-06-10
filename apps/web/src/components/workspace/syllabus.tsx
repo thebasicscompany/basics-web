@@ -1,14 +1,21 @@
 import Link from "next/link";
-import { ClockIcon } from "@phosphor-icons/react/dist/ssr";
+import {
+  CheckCircleIcon,
+  ClockIcon,
+} from "@phosphor-icons/react/dist/ssr";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+
+export type LessonProgressStatus = "in_progress" | "completed";
 
 export type SyllabusLesson = {
   id: string;
   title: string;
   summary: string | null;
   estimatedMinutes: number | null;
+  progress?: LessonProgressStatus | null;
 };
 
 export type SyllabusSection = {
@@ -76,11 +83,18 @@ export function Syllabus({
                 className="flex items-center justify-between gap-4 px-4 py-3"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
+                  <p className="flex items-center truncate text-sm font-medium">
                     <span className="mr-2 text-muted-foreground">
                       {index + 1}.
                     </span>
-                    {lesson.title}
+                    <span className="truncate">{lesson.title}</span>
+                    {lesson.progress === "completed" ? (
+                      <CheckCircleIcon
+                        weight="fill"
+                        aria-label="Completed"
+                        className="ml-2 size-4 shrink-0 text-primary"
+                      />
+                    ) : null}
                   </p>
                   <p className="flex items-center gap-3 text-xs text-muted-foreground">
                     {lesson.summary ? (
@@ -97,14 +111,21 @@ export function Syllabus({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="shrink-0"
+                  className={cn(
+                    "shrink-0",
+                    lesson.progress === "completed" && "text-muted-foreground",
+                  )}
                   render={
                     <Link
                       href={`/courses/${courseId}/lessons/${lesson.id}/learn`}
                     />
                   }
                 >
-                  Start lesson
+                  {lesson.progress === "completed"
+                    ? "Review"
+                    : lesson.progress === "in_progress"
+                      ? "Continue"
+                      : "Start lesson"}
                 </Button>
               </div>
             ))}

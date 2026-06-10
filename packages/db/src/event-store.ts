@@ -160,6 +160,33 @@ export async function appendSessionEvents(
             },
           });
           break;
+        case "lesson.completed": {
+          const lesson = await tx.lesson.findUnique({
+            where: { id: draft.lessonId },
+            select: { courseId: true },
+          });
+          if (lesson) {
+            await tx.lessonProgress.upsert({
+              where: {
+                learnerId_lessonId: {
+                  learnerId: context.learnerId,
+                  lessonId: draft.lessonId,
+                },
+              },
+              create: {
+                id: `progress_${crypto.randomUUID().replaceAll("-", "")}`,
+                learnerId: context.learnerId,
+                lessonId: draft.lessonId,
+                courseId: lesson.courseId,
+                status: "completed",
+                completedAt: now,
+                createdAt: now,
+              },
+              update: { status: "completed", completedAt: now },
+            });
+          }
+          break;
+        }
         default:
           break;
       }

@@ -69,7 +69,7 @@ export async function getEnrolledCourses(context: LearnerContext) {
 
 /**
  * Recent chat threads (sessions with a course but no lesson) for the
- * sidebar and workspace home.
+ * workspace home and command palette.
  */
 export async function getRecentChats(
   context: LearnerContext,
@@ -78,7 +78,7 @@ export async function getRecentChats(
   return db.session.findMany({
     where: {
       learnerId: context.learnerId,
-      lessonId: null,
+      kind: "chat",
       courseId: options.courseId ?? { not: null },
     },
     orderBy: { updatedAt: "desc" },
@@ -89,6 +89,24 @@ export async function getRecentChats(
       topic: true,
       updatedAt: true,
       createdAt: true,
+    },
+  });
+}
+
+/** Pinned chat threads for the course sidebar. */
+export async function getPinnedChats(context: LearnerContext) {
+  return db.session.findMany({
+    where: {
+      learnerId: context.learnerId,
+      kind: "chat",
+      courseId: { not: null },
+      pinnedAt: { not: null },
+    },
+    orderBy: { pinnedAt: "desc" },
+    select: {
+      id: true,
+      courseId: true,
+      topic: true,
     },
   });
 }

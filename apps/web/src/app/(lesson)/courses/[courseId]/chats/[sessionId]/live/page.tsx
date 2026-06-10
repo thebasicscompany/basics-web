@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { LessonRoom } from "@/components/session/lesson-room";
-import { requireLearnerContext } from "@/lib/learner";
+import { getLearnerPreferences, requireLearnerContext } from "@/lib/learner";
 import { toSession } from "@/lib/serializers";
 import { getOwnedSession, getSessionEvents } from "@/lib/session-store";
 
@@ -22,13 +22,17 @@ export default async function ChatLivePage({
     notFound();
   }
 
-  const events = await getSessionEvents(sessionId);
+  const [events, preferences] = await Promise.all([
+    getSessionEvents(sessionId),
+    getLearnerPreferences(context.learnerId),
+  ]);
 
   return (
     <LessonRoom
       session={toSession(sessionRow)}
       lesson={null}
       initialEvents={events}
+      preferences={preferences}
     />
   );
 }

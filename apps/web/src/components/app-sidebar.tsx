@@ -1,18 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   BooksIcon,
   CaretRightIcon,
   ChatCircleIcon,
+  ChatsCircleIcon,
   FolderSimpleIcon,
   GraduationCapIcon,
   HouseIcon,
   MagnifyingGlassIcon,
   SquaresFourIcon,
 } from "@phosphor-icons/react";
+import type { LearnerPreferences } from "@basics/contracts";
 
 import { openCommandPalette } from "@/components/command-palette";
 import { NavUser } from "@/components/nav-user";
@@ -40,15 +41,19 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 
-const VISIBLE_CHATS = 4;
-
 export type SidebarCourse = {
   id: string;
   title: string;
-  chats: { id: string; topic: string | null }[];
+  pinnedChats: { id: string; topic: string | null }[];
 };
 
-export function AppSidebar({ courses }: { courses: SidebarCourse[] }) {
+export function AppSidebar({
+  courses,
+  preferences,
+}: {
+  courses: SidebarCourse[];
+  preferences: LearnerPreferences;
+}) {
   const pathname = usePathname();
 
   return (
@@ -145,7 +150,7 @@ export function AppSidebar({ courses }: { courses: SidebarCourse[] }) {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <NavUser />
+        <NavUser preferences={preferences} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
@@ -160,11 +165,13 @@ function CourseSection({
   pathname: string;
 }) {
   const inCourse = pathname.startsWith(`/courses/${course.id}`);
-  const [showAllChats, setShowAllChats] = useState(false);
-
-  const chats = showAllChats
-    ? course.chats
-    : course.chats.slice(0, VISIBLE_CHATS);
+  const conversationsHref = `/courses/${course.id}/conversations`;
+  const conversationsActive =
+    pathname === conversationsHref ||
+    (pathname.startsWith(`/courses/${course.id}/chats/`) &&
+      !course.pinnedChats.some(
+        (chat) => pathname === `/courses/${course.id}/chats/${chat.id}`,
+      ));
 
   return (
     <Collapsible defaultOpen={inCourse} className="group/collapsible">
@@ -188,7 +195,19 @@ function CourseSection({
                 <span>Overview</span>
               </SidebarMenuSubButton>
             </SidebarMenuSubItem>
-            {chats.map((chat) => {
+            <SidebarMenuSubItem>
+              <SidebarMenuSubButton
+                isActive={conversationsActive}
+                render={<Link href={conversationsHref} />}
+              >
+                <ChatsCircleIcon
+                  size={32}
+                  weight={conversationsActive ? "fill" : "regular"}
+                />
+                <span>Conversations</span>
+              </SidebarMenuSubButton>
+            </SidebarMenuSubItem>
+            {course.pinnedChats.map((chat) => {
               const href = `/courses/${course.id}/chats/${chat.id}`;
               const isActive = pathname === href;
               return (
@@ -205,16 +224,6 @@ function CourseSection({
                 </SidebarMenuSubItem>
               );
             })}
-            {course.chats.length > VISIBLE_CHATS && !showAllChats ? (
-              <SidebarMenuSubItem>
-                <SidebarMenuSubButton
-                  className="text-muted-foreground"
-                  onClick={() => setShowAllChats(true)}
-                >
-                  <span>Show more</span>
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
-            ) : null}
             <SidebarMenuSubItem>
               <SidebarMenuSubButton
                 isActive={pathname === `/courses/${course.id}/materials`}

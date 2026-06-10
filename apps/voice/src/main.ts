@@ -14,7 +14,11 @@ import * as livekit from "@livekit/agents-plugin-livekit";
 import * as silero from "@livekit/agents-plugin-silero";
 import type { Room } from "@livekit/rtc-node";
 import { config as loadEnv } from "dotenv";
-import { createPrismaClient, type BasicsPrismaClient } from "@basics/db";
+import {
+  createPrismaClient,
+  serializeSessionEvent,
+  type BasicsPrismaClient,
+} from "@basics/db";
 import {
   getKindConfig,
   loadSessionContext,
@@ -59,6 +63,23 @@ function bindLiveKitTools(
       description: definition.description,
       parameters: definition.parameters,
       execute: async (args) => {
+        // Structural precondition: gated tools are checked against the
+        // session's persisted events at call time. A blocked call produces
+        // no drafts; the message is returned so the model can correct course.
+        if (definition.gate) {
+          const rows = await deps.db.sessionEvent.findMany({
+            where: { sessionId: deps.toolContext.sessionId },
+            orderBy: { sequence: "asc" },
+          });
+          const blocked = definition.gate(
+            deps.toolContext,
+            rows.map(serializeSessionEvent),
+          );
+          if (blocked) {
+            return blocked;
+          }
+        }
+
         const drafts = definition.toDrafts(args, deps.toolContext);
         const events = await persistTurnEvents(
           deps.db,
@@ -105,12 +126,14 @@ export default defineAgent<{ vad: silero.VAD }>({
       try {
         return JSON.parse(ctx.job.metadata || "{}") as {
           sessionId?: string;
+          voiceMode?: string;
         };
       } catch {
         return {};
       }
     })();
     const sessionId = metadata.sessionId ?? ctx.room.name;
+    const pushToTalk = metadata.voiceMode === "push_to_talk";
 
     if (!sessionId) {
       throw new Error("No session id in job metadata or room name");
@@ -125,6 +148,51 @@ export default defineAgent<{ vad: silero.VAD }>({
       learnerId: session.learnerId,
       workspaceId: session.workspaceId ?? "",
     };
+
+    // Sitting metrics: each worker job is one sitting. Mark the lesson
+    // in-progress on join; add the sitting's duration on shutdown. The
+    // completed status is owned by the lesson.completed event projection.
+    const sittingStartedAt = Date.now();
+    if (session.lessonId && session.courseId) {
+      const lessonId = session.lessonId;
+      const courseId = session.courseId;
+      await db.lessonProgress
+        .upsert({
+          where: {
+            learnerId_lessonId: { learnerId: session.learnerId, lessonId },
+          },
+          create: {
+            id: `progress_${crypto.randomUUID().replaceAll("-", "")}`,
+            learnerId: session.learnerId,
+            lessonId,
+            courseId,
+            status: "in_progress",
+            sessionCount: 1,
+            createdAt: new Date(),
+          },
+          update: { sessionCount: { increment: 1 } },
+        })
+        .catch((error: unknown) => {
+          console.error("Failed to record lesson sitting", error);
+        });
+
+      ctx.addShutdownCallback(async () => {
+        const seconds = Math.max(
+          0,
+          Math.round((Date.now() - sittingStartedAt) / 1000),
+        );
+        await db.lessonProgress
+          .update({
+            where: {
+              learnerId_lessonId: { learnerId: session.learnerId, lessonId },
+            },
+            data: { totalSeconds: { increment: seconds } },
+          })
+          .catch((error: unknown) => {
+            console.error("Failed to record lesson sitting duration", error);
+          });
+      });
+    }
 
     const tools = bindLiveKitTools(config.tools, {
       db,
@@ -155,7 +223,11 @@ export default defineAgent<{ vad: silero.VAD }>({
         // "sample_rate and num_channels don't match" in agents 1.4.x.
         sampleRate: 24000,
       }),
-      turnDetection: new livekit.turnDetector.MultilingualModel(),
+      // Push-to-talk: the learner explicitly opens/closes their turn over
+      // RPC, so no automatic end-of-turn detection runs.
+      turnDetection: pushToTalk
+        ? "manual"
+        : new livekit.turnDetector.MultilingualModel(),
       vad: ctx.proc.userData.vad as silero.VAD,
     });
 
@@ -201,6 +273,32 @@ export default defineAgent<{ vad: silero.VAD }>({
       agent,
       room: ctx.room,
     });
+
+    if (pushToTalk) {
+      // Ignore the mic until the learner holds their talk key. The browser
+      // drives the turn lifecycle over RPC (see lesson-room.tsx).
+      voiceSession.input.setAudioEnabled(false);
+      const local = ctx.room.localParticipant;
+
+      local?.registerRpcMethod("ptt.start_turn", async () => {
+        voiceSession.interrupt();
+        voiceSession.clearUserTurn();
+        voiceSession.input.setAudioEnabled(true);
+        return "ok";
+      });
+
+      local?.registerRpcMethod("ptt.end_turn", async () => {
+        voiceSession.input.setAudioEnabled(false);
+        voiceSession.commitUserTurn();
+        return "ok";
+      });
+
+      local?.registerRpcMethod("ptt.cancel_turn", async () => {
+        voiceSession.input.setAudioEnabled(false);
+        voiceSession.clearUserTurn();
+        return "ok";
+      });
+    }
 
     const hasHistory = sessionContext.events.some(
       (event) => event.type === "transcript.utterance",

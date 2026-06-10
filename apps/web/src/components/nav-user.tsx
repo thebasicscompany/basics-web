@@ -7,6 +7,7 @@ import {
   SignOutIcon,
   UserCircleIcon,
 } from "@phosphor-icons/react";
+import type { LearnerPreferences } from "@basics/contracts";
 
 import { SettingsDialog, type SettingsTab } from "@/components/settings-dialog";
 import {
@@ -24,11 +25,11 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-export function NavUser() {
+export function NavUser({ preferences }: { preferences: LearnerPreferences }) {
   const { user } = useUser();
   const { signOut } = useClerk();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
 
   if (!user) {
     return null;
@@ -75,7 +76,7 @@ export function NavUser() {
               <UserCircleIcon />
               Profile
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openSettings("account")}>
+            <DropdownMenuItem onClick={() => openSettings("general")}>
               <GearIcon />
               Settings
             </DropdownMenuItem>
@@ -92,6 +93,7 @@ export function NavUser() {
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
           initialTab={settingsTab}
+          preferences={preferences}
         />
       </SidebarMenuItem>
     </SidebarMenu>

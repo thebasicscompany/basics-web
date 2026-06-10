@@ -2,7 +2,7 @@ import type { SessionKind } from "@basics/contracts";
 import type { SessionContext } from "./context";
 import { INTAKE_TOOLS } from "./intake";
 import { buildIntakePrompt, buildTutorPrompt } from "./prompt";
-import { TUTOR_TOOLS, type ToolDefinition } from "./tools";
+import { LESSON_TOOLS, TUTOR_TOOLS, type ToolDefinition } from "./tools";
 
 /**
  * What a session is for. The kind decides the prompt persona, the tool
@@ -28,7 +28,7 @@ export type KindConfig = {
 export const KIND_CONFIGS = {
   lesson: {
     buildPrompt: buildTutorPrompt,
-    tools: TUTOR_TOOLS,
+    tools: LESSON_TOOLS,
   },
   chat: {
     buildPrompt: buildTutorPrompt,

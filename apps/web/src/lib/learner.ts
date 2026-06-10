@@ -1,6 +1,10 @@
 import "server-only";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import {
+  parseLearnerPreferences,
+  type LearnerPreferences,
+} from "@basics/contracts";
 import { db } from "@/lib/db";
 import { createId } from "@/lib/ids";
 
@@ -72,6 +76,17 @@ export async function getLearnerContext(): Promise<LearnerContext | null> {
     workspaceId: workspace.id,
     displayName,
   };
+}
+
+/** Loads the learner's stored preferences, tolerating missing/invalid data. */
+export async function getLearnerPreferences(
+  learnerId: string,
+): Promise<LearnerPreferences> {
+  const learner = await db.learner.findUnique({
+    where: { id: learnerId },
+    select: { preferences: true },
+  });
+  return parseLearnerPreferences(learner?.preferences);
 }
 
 export async function requireLearnerContext(): Promise<LearnerContext> {

@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RoomEvent, TokenSource } from "livekit-client";
 import {
   useAgent,
@@ -10,8 +10,19 @@ import {
   useSessionContext,
   useSessionMessages,
 } from "@livekit/components-react";
-import { ArrowLeftIcon, ChatTextIcon, XIcon } from "@phosphor-icons/react";
-import type { Lesson, Session, SessionEvent } from "@basics/contracts";
+import {
+  ArrowLeftIcon,
+  ChatTextIcon,
+  CheckCircleIcon,
+  XIcon,
+} from "@phosphor-icons/react";
+import { toast } from "sonner";
+import type {
+  LearnerPreferences,
+  Lesson,
+  Session,
+  SessionEvent,
+} from "@basics/contracts";
 import { AgentChatTranscript } from "@/components/agents-ui/agent-chat-transcript";
 import { AgentControlBar } from "@/components/agents-ui/agent-control-bar";
 import { AgentCaptions } from "@/components/session/agent-captions";
@@ -21,6 +32,7 @@ import {
   isVisualAction,
   latestTeachingState,
 } from "@/components/session/projections";
+import { formatKeyCode } from "@/lib/keybind";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -41,9 +53,15 @@ type LessonRoomProps = {
   session: Session;
   lesson: Lesson | null;
   initialEvents: SessionEvent[];
+  preferences: LearnerPreferences;
 };
 
-export function LessonRoom({ session, lesson, initialEvents }: LessonRoomProps) {
+export function LessonRoom({
+  session,
+  lesson,
+  initialEvents,
+  preferences,
+}: LessonRoomProps) {
   const tokenSource = useMemo(
     () => TokenSource.endpoint(`/api/sessions/${session.id}/connection-details`),
     [session.id],
@@ -55,6 +73,7 @@ export function LessonRoom({ session, lesson, initialEvents }: LessonRoomProps) 
       <LessonStage
         lesson={lesson}
         initialEvents={initialEvents}
+        preferences={preferences}
         backHref={
           lesson
             ? `/courses/${lesson.courseId}`
@@ -68,18 +87,149 @@ export function LessonRoom({ session, lesson, initialEvents }: LessonRoomProps) 
   );
 }
 
+/**
+ * Hold-to-talk turn control. While the learner holds their talk key (or
+ * the mic button), their mic is live and the agent listens; releasing
+ * commits the turn over RPC so the agent responds (Esc discards it). The
+ * agent runs with manual turn detection in this mode — see
+ * apps/voice/src/main.ts. The key is a `KeyboardEvent.code` from learner
+ * preferences (default Space).
+ */
+function usePushToTalk(enabled: boolean, keybind: string) {
+  const session = useSessionContext();
+  const [holding, setHolding] = useState(false);
+  const holdSourceRef = useRef<"key" | "pointer" | null>(null);
+
+  const performPtt = useCallback(
+    async (method: "ptt.start_turn" | "ptt.end_turn" | "ptt.cancel_turn") => {
+      const room = session.room;
+      const agent = [...room.remoteParticipants.values()].find(
+        (participant) => participant.isAgent,
+      );
+      if (!agent) {
+        return;
+      }
+      try {
+        await room.localParticipant.performRpc({
+          destinationIdentity: agent.identity,
+          method,
+          payload: "",
+        });
+      } catch (error) {
+        console.error(`Push-to-talk RPC ${method} failed`, error);
+      }
+    },
+    [session.room],
+  );
+
+  const startHold = useCallback(
+    (source: "key" | "pointer") => {
+      if (!enabled || !session.isConnected || holdSourceRef.current) {
+        return;
+      }
+      holdSourceRef.current = source;
+      setHolding(true);
+      void session.room.localParticipant.setMicrophoneEnabled(true);
+      void performPtt("ptt.start_turn");
+    },
+    [enabled, session, performPtt],
+  );
+
+  const endHold = useCallback(
+    (cancelled = false) => {
+      if (!holdSourceRef.current) {
+        return;
+      }
+      holdSourceRef.current = null;
+      setHolding(false);
+      void session.room.localParticipant.setMicrophoneEnabled(false);
+      void performPtt(cancelled ? "ptt.cancel_turn" : "ptt.end_turn");
+    },
+    [session, performPtt],
+  );
+
+  // Keep the mic muted between turns; the hold is what opens it.
+  useEffect(() => {
+    if (enabled && session.isConnected) {
+      void session.room.localParticipant.setMicrophoneEnabled(false);
+    }
+  }, [enabled, session.isConnected, session.room]);
+
+  useEffect(() => {
+    if (!enabled || !session.isConnected) {
+      return;
+    }
+
+    const isTypingTarget = (target: EventTarget | null) =>
+      target instanceof HTMLElement &&
+      (target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable);
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.code === keybind &&
+        !event.repeat &&
+        !isTypingTarget(event.target)
+      ) {
+        event.preventDefault();
+        startHold("key");
+      } else if (event.code === "Escape" && holdSourceRef.current) {
+        endHold(true);
+      }
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.code === keybind && holdSourceRef.current === "key") {
+        event.preventDefault();
+        endHold();
+      }
+    };
+    // Release is global so dragging off the mic button still ends the turn.
+    const onPointerEnd = () => {
+      if (holdSourceRef.current === "pointer") {
+        endHold();
+      }
+    };
+    // Don't leave the mic hot if focus leaves the page mid-hold.
+    const onWindowBlur = () => endHold();
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("pointerup", onPointerEnd);
+    window.addEventListener("pointercancel", onPointerEnd);
+    window.addEventListener("blur", onWindowBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("pointerup", onPointerEnd);
+      window.removeEventListener("pointercancel", onPointerEnd);
+      window.removeEventListener("blur", onWindowBlur);
+    };
+  }, [enabled, keybind, session.isConnected, startHold, endHold]);
+
+  return { holding, startHold };
+}
+
 function LessonStage({
   lesson,
   initialEvents,
+  preferences,
   backHref,
 }: {
   lesson: Lesson | null;
   initialEvents: SessionEvent[];
+  preferences: LearnerPreferences;
   backHref: string;
 }) {
   const session = useSessionContext();
   const { messages } = useSessionMessages(session);
   const { state: agentState } = useAgent(session);
+  const pushToTalk = preferences.voiceMode === "push_to_talk";
+  const pttKeyLabel = formatKeyCode(preferences.pttKeybind);
+  const { holding, startHold } = usePushToTalk(
+    pushToTalk,
+    preferences.pttKeybind,
+  );
 
   const [events, setEvents] = useState<SessionEvent[]>(initialEvents);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
@@ -131,6 +281,22 @@ function LessonStage({
   const visualActions = useMemo(() => events.filter(isVisualAction), [events]);
   const teachingState = useMemo(() => latestTeachingState(events), [events]);
 
+  const lessonCompleted = useMemo(
+    () => events.some((event) => event.type === "lesson.completed"),
+    [events],
+  );
+  const completionAnnouncedRef = useRef(
+    initialEvents.some((event) => event.type === "lesson.completed"),
+  );
+  useEffect(() => {
+    if (lessonCompleted && !completionAnnouncedRef.current) {
+      completionAnnouncedRef.current = true;
+      toast.success("Lesson complete", {
+        description: "You demonstrated every objective. Great work.",
+      });
+    }
+  }, [lessonCompleted]);
+
   async function startLesson() {
     setIsStarting(true);
     setStartError(null);
@@ -167,8 +333,15 @@ function LessonStage({
             <ArrowLeftIcon />
           </Button>
           <div className="min-w-0">
-            <h1 className="truncate font-heading text-sm font-semibold tracking-tight">
-              {lesson?.title ?? "Lesson"}
+            <h1 className="flex items-center gap-1.5 truncate font-heading text-sm font-semibold tracking-tight">
+              <span className="truncate">{lesson?.title ?? "Lesson"}</span>
+              {lessonCompleted ? (
+                <CheckCircleIcon
+                  weight="fill"
+                  aria-label="Lesson completed"
+                  className="size-4 shrink-0 text-primary"
+                />
+              ) : null}
             </h1>
             {teachingState?.conceptFocus ? (
               <Badge variant="secondary" className="mt-0.5 max-w-full">
@@ -271,8 +444,9 @@ function LessonStage({
               {isStarting ? "Connecting..." : "Start lesson"}
             </Button>
             <p className="text-muted-foreground text-xs">
-              Talk with your tutor live. You can also type in chat once
-              connected.
+              {pushToTalk
+                ? `Hold ${pttKeyLabel} (or the mic button) while you talk — release to let your tutor answer.`
+                : "Talk with your tutor live. You can also type in chat once connected."}
             </p>
             {startError ? (
               <p className="text-destructive text-sm">{startError}</p>
@@ -286,11 +460,13 @@ function LessonStage({
         <div className="absolute inset-x-0 bottom-0 z-30 pb-4">
           <div className="mx-auto w-full max-w-xl px-4">
             {/* Live caption of the tutor's current utterance */}
-            <AgentCaptions
-              messages={messages}
-              agentState={agentState}
-              className="mb-3"
-            />
+            {preferences.showCaptions ? (
+              <AgentCaptions
+                messages={messages}
+                agentState={agentState}
+                className="mb-3"
+              />
+            ) : null}
             <AgentControlBar
               variant="livekit"
               controls={{
@@ -302,6 +478,15 @@ function LessonStage({
               }}
               isConnected={session.isConnected}
               isChatOpen={chatOpen}
+              microphoneHold={
+                pushToTalk
+                  ? {
+                      holding,
+                      onHoldStart: () => startHold("pointer"),
+                      keyHint: pttKeyLabel,
+                    }
+                  : undefined
+              }
               onIsChatOpenChange={setChatOpen}
               onDisconnect={session.end}
             />

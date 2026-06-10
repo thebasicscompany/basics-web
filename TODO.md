@@ -1,5 +1,82 @@
 # TODO
 
+# Shipped: preferences + push-to-talk, workspace tabs, completion gate
+
+All landed; recorded here for context. Three tracks:
+
+**Learner preferences + push-to-talk + settings modal**
+
+- [x] `Learner.preferences` Json column (+ migration);
+      `LearnerPreferencesSchema` in `@basics/contracts` (`voiceMode`,
+      `showCaptions`, `.catch()` defaults so bad data degrades gracefully);
+      `getLearnerPreferences` / `updateLearnerPreferences` server action
+- [x] Settings modal rebuilt (`settings-dialog.tsx`): sidebar sections
+      (General / Profile / Account), search over rows, theme via
+      `next-themes` (custom `theme-provider.tsx` wrapper suppresses the
+      React 19 inline-script warning), voice mode select, captions switch.
+      Nav-user dropdown deep-links into sections
+- [x] Push-to-talk: `voiceMode` rides agent dispatch metadata
+      (connection-details route) → voice worker uses
+      `turnDetection: "manual"` + RPC (`ptt.start_turn/end_turn/cancel_turn`);
+      client `usePushToTalk` hook in `lesson-room.tsx` — hold Space or hold
+      the mic button; mic muted between turns; visualizers untouched
+
+**Course workspace tabs + conversation management**
+
+- [x] Course workspace routes: Overview `/courses/[id]`,
+      Conversations `/courses/[id]/conversations`,
+      Materials `/courses/[id]/materials` — nav lives in the sidebar
+      (page-level tab bar removed)
+- [x] Conversations page: Claude-style list — client-side search, New chat,
+      hover `⋮` menu with Rename / Pin to sidebar / Delete (server actions
+      in `conversation-actions.ts`; `Session.pinnedAt` for sidebar pins)
+- [x] Sidebar per course: Overview, Conversations (always), pinned chats
+      only (no recent-chat list), Materials
+- [x] Chat thread breadcrumb: `Courses / {Course} / Conversations`
+
+**Demonstrated-understanding gate + lesson metrics**
+
+The principle: ending a session is just "done for now"; the lesson
+checkmark is *earned*. The gate controls the checkmark, never navigation.
+
+- [x] `lesson.completed` event (`@basics/contracts`) with per-objective
+      evidence (`{ objective, evidence, confidence }[]`)
+- [x] `mark_lesson_complete` tool (lesson kind only): prompt instructs the
+      tutor it may only call it after the learner explained back / applied
+      every objective; the tool `gate` blocks unless the session log has
+      positive `mastery.observed` evidence (confidence ≥ 0.6, not
+      misconception/asked_for_help) — LLM judgment + hard data floor.
+      Voice tool binding (`apps/voice/src/main.ts`) now evaluates gates
+      against persisted events at call time
+- [x] `LessonProgress` table (learner × lesson: status, completedAt,
+      totalSeconds, sessionCount) + migration; `lesson.completed` projects
+      into it inside `appendSessionEvents`
+- [x] Sitting metrics: each voice worker job = one sitting — upserts
+      `in_progress` + bumps `sessionCount` on join, adds duration to
+      `totalSeconds` on shutdown. Lesson sessions stay continuous across
+      sittings (transcript/whiteboard rehydrate) — lifecycle split deferred
+      to the memory work below
+- [x] UI: completion toast + header badge in the lesson room (event rides
+      the teaching-state data topic), syllabus checkmarks with
+      Start/Continue/Review states, "X of Y lessons completed" on the course
+      header, home rail progress bars read real completions (proxy removed)
+
+**Follow-ups from these tracks (not done):**
+
+- [ ] End-of-session recap screen: objectives demonstrated vs remaining,
+      time spent this sitting, "lesson complete" celebration — the gate's
+      motivating surface. Data is all in place (`LessonProgress` +
+      `lesson.completed.objectives`)
+- [ ] Auto-title chats from the first message (new chats show "New chat"
+      until renamed; `Session.topic` is never set for composer chats)
+- [ ] Conversations: bulk select/delete; server-side search when lists grow
+- [ ] Richer metrics: learner talk-share / utterance counts from transcript
+      timestamps (wall-clock only today); time-to-complete rollups
+- [x] PTT keybind customization in settings: `pttKeybind` preference
+      (`KeyboardEvent.code`, default Space) + recorder row in
+      General → Live sessions (click, press a key; Esc cancels). Lesson
+      room reads it for the hold listener and hint labels only
+
 # Active track: harness → schema → course generation
 
 Three steps, in order. Each is a separate commit, independently verifiable,

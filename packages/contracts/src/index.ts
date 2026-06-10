@@ -107,12 +107,15 @@ export type VoiceMode = z.infer<typeof VoiceModeSchema>;
 export const LearnerPreferencesSchema = z.object({
   voiceMode: VoiceModeSchema.catch("realtime"),
   showCaptions: z.boolean().catch(true),
+  /** Push-to-talk hold key as a `KeyboardEvent.code` (layout-independent). */
+  pttKeybind: z.string().min(1).max(32).catch("Space"),
 });
 export type LearnerPreferences = z.infer<typeof LearnerPreferencesSchema>;
 
 export const DEFAULT_LEARNER_PREFERENCES: LearnerPreferences = {
   voiceMode: "realtime",
   showCaptions: true,
+  pttKeybind: "Space",
 };
 
 /** Parses a stored preferences blob, falling back to defaults when invalid. */
@@ -506,6 +509,25 @@ export type LessonCheckpointReachedEvent = z.infer<
   typeof LessonCheckpointReachedEventSchema
 >;
 
+/** One lesson objective with the learner's demonstrated evidence for it. */
+export const ObjectiveEvidenceSchema = strictObject({
+  objective: nonEmptyStringSchema,
+  evidence: nonEmptyStringSchema,
+  confidence: z.number().min(0).max(1),
+});
+export type ObjectiveEvidence = z.infer<typeof ObjectiveEvidenceSchema>;
+
+/**
+ * The tutor marked the lesson complete after the learner demonstrated
+ * understanding of each objective. Projected into LessonProgress.
+ */
+export const LessonCompletedEventSchema = sessionEventBaseSchema.extend({
+  type: z.literal("lesson.completed"),
+  lessonId: LessonIdSchema,
+  objectives: z.array(ObjectiveEvidenceSchema).min(1),
+});
+export type LessonCompletedEvent = z.infer<typeof LessonCompletedEventSchema>;
+
 /**
  * The canonical intake stepper. Fixed in code — the model fills in each
  * step's content but never invents sections.
@@ -625,6 +647,7 @@ export const SessionEventSchema = z.discriminatedUnion("type", [
   ContextSourceAddedEventSchema,
   MasteryObservedEventSchema,
   LessonCheckpointReachedEventSchema,
+  LessonCompletedEventSchema,
 ]);
 export type SessionEvent = z.infer<typeof SessionEventSchema>;
 

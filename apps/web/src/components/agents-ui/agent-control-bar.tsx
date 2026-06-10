@@ -169,6 +169,20 @@ export interface AgentControlBarControls {
   chat?: boolean;
 }
 
+/**
+ * Hold-to-talk wiring for the microphone button. When provided, the mic
+ * button stops being a mute toggle: holding it down opens the learner's
+ * turn and releasing it (anywhere) ends it. The pressed state and audio
+ * visualizer are driven by `holding`, so the voice bars behave exactly as
+ * they do for mute/unmute in real-time mode.
+ */
+export interface MicrophoneHoldProps {
+  holding: boolean;
+  onHoldStart: () => void;
+  /** Friendly label of the configured hold key (e.g. "Space", "Right Alt"). */
+  keyHint?: string;
+}
+
 export interface AgentControlBarProps extends UseInputControlsProps {
   /**
    * The visual style of the control bar.
@@ -208,6 +222,11 @@ export interface AgentControlBarProps extends UseInputControlsProps {
    * @default false
    */
   isChatOpen?: boolean;
+  /**
+   * When set, the microphone button acts as a hold-to-talk control instead
+   * of a mute toggle (release is handled globally by the caller).
+   */
+  microphoneHold?: MicrophoneHoldProps;
   /** The callback for when the user disconnects. */
   onDisconnect?: () => void;
   /** The callback for when the chat is opened or closed. */
@@ -246,6 +265,7 @@ export function AgentControlBar({
   isChatOpen = false,
   isConnected = false,
   saveUserChoices = true,
+  microphoneHold,
   onDisconnect,
   onDeviceError,
   onIsChatOpenChange,
@@ -315,12 +335,28 @@ export function AgentControlBar({
             <AgentTrackControl
               variant={variant === 'outline' ? 'outline' : 'default'}
               kind="audioinput"
-              aria-label="Toggle microphone"
+              aria-label={microphoneHold ? 'Hold to talk' : 'Toggle microphone'}
               source={Track.Source.Microphone}
-              pressed={microphoneToggle.enabled}
+              pressed={microphoneHold ? microphoneHold.holding : microphoneToggle.enabled}
               disabled={microphoneToggle.pending}
               audioTrack={microphoneTrack}
-              onPressedChange={microphoneToggle.toggle}
+              onPressedChange={microphoneHold ? undefined : microphoneToggle.toggle}
+              toggleProps={
+                microphoneHold
+                  ? {
+                      title: microphoneHold.keyHint
+                        ? `Hold to talk (or hold ${microphoneHold.keyHint})`
+                        : 'Hold to talk',
+                      onPointerDown: (event) => {
+                        // Keep focus where it is so the talk key stays a
+                        // global hold key rather than re-triggering this
+                        // button.
+                        event.preventDefault();
+                        microphoneHold.onHoldStart();
+                      },
+                    }
+                  : undefined
+              }
               onActiveDeviceChange={handleAudioDeviceChange}
               onMediaDeviceError={handleMicrophoneDeviceSelectError}
               className={cn(

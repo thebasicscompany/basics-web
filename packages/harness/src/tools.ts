@@ -237,6 +237,84 @@ export const reachCheckpoint = defineTool({
   resultText: () => "Checkpoint recorded.",
 });
 
+/**
+ * The completion gate: the lesson is only marked complete with per-objective
+ * evidence, and only once the session log actually contains positive mastery
+ * observations — an LLM judgment with a hard data floor underneath it.
+ */
+export const markLessonComplete = defineTool({
+  name: "mark_lesson_complete",
+  description: [
+    "Mark the current lesson as completed. Call ONLY after the learner has",
+    "demonstrated understanding of every lesson objective — explained it",
+    "back in their own words or applied it correctly. Never call it just",
+    "because the learner wants to stop or says they understand.",
+  ].join(" "),
+  parameters: z.object({
+    objectives: z
+      .array(
+        z.object({
+          objective: z
+            .string()
+            .min(1)
+            .describe("The lesson objective, as stated in the lesson"),
+          evidence: z
+            .string()
+            .min(1)
+            .describe(
+              "What the learner said or did that demonstrates this objective",
+            ),
+          confidence: z.number().min(0).max(1),
+        }),
+      )
+      .min(1),
+  }),
+  toDrafts: (input, ctx) =>
+    ctx.lessonId
+      ? [
+          {
+            type: "lesson.completed",
+            lessonId: ctx.lessonId,
+            objectives: input.objectives,
+          },
+        ]
+      : [],
+  resultText: () =>
+    "Lesson marked complete. Congratulate the learner briefly and wrap up.",
+  gate: (ctx, events) => {
+    if (!ctx.lessonId) {
+      return "This session is not attached to a lesson, so it cannot be marked complete.";
+    }
+
+    const alreadyComplete = events.some(
+      (event) =>
+        event.type === "lesson.completed" && event.lessonId === ctx.lessonId,
+    );
+    if (alreadyComplete) {
+      return "This lesson is already marked complete.";
+    }
+
+    const demonstrations = events.filter(
+      (event) =>
+        event.type === "mastery.observed" &&
+        event.observation.lessonId === ctx.lessonId &&
+        event.observation.confidence >= 0.6 &&
+        event.observation.signal !== "misconception" &&
+        event.observation.signal !== "asked_for_help",
+    );
+    if (demonstrations.length === 0) {
+      return [
+        "Blocked: no recorded mastery evidence for this lesson yet.",
+        "Probe the learner's understanding first — have them explain each",
+        "objective back or apply it — and call record_mastery for each",
+        "demonstration. Then try again.",
+      ].join(" ");
+    }
+
+    return null;
+  },
+});
+
 /** Tools shared by the tutoring kinds (lesson and chat). */
 export const TUTOR_TOOLS: ToolDefinition[] = [
   updateTeachingState,
@@ -244,4 +322,10 @@ export const TUTOR_TOOLS: ToolDefinition[] = [
   whiteboardClear,
   recordMastery,
   reachCheckpoint,
+];
+
+/** Lesson sessions additionally get the completion gate. */
+export const LESSON_TOOLS: ToolDefinition[] = [
+  ...TUTOR_TOOLS,
+  markLessonComplete,
 ];

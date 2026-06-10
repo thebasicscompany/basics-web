@@ -58,6 +58,10 @@ export default async function ChatThreadPage({
             <Link href={`/courses/${courseId}`} className="truncate">
               {session.course?.title ?? "Course"}
             </Link>
+            <PageBreadcrumbSeparator />
+            <Link href={`/courses/${courseId}/conversations`}>
+              Conversations
+            </Link>
           </PageBreadcrumb>
           <h1 className="truncate font-heading text-base font-semibold tracking-tight">
             {session.topic ?? "New chat"}

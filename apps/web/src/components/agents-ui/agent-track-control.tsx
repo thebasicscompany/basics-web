@@ -231,6 +231,11 @@ export type AgentTrackControlProps = VariantProps<typeof toggleVariants> & {
    */
   audioTrack?: TrackReferenceOrPlaceholder;
   /**
+   * Extra props forwarded to the toggle button (e.g. pointer handlers for
+   * hold-to-talk).
+   */
+  toggleProps?: React.ComponentProps<'button'>;
+  /**
    * Callback when the pressed state changes.
    */
   onPressedChange?: (pressed: boolean) => void;
@@ -270,6 +275,7 @@ export function AgentTrackControl({
   disabled,
   className,
   audioTrack,
+  toggleProps,
   onPressedChange,
   onMediaDeviceError,
   onActiveDeviceChange,
@@ -289,6 +295,7 @@ export function AgentTrackControl({
         pending={pending}
         disabled={disabled}
         onPressedChange={onPressedChange}
+        {...toggleProps}
         className="peer/track group/track focus:z-10 has-[.audiovisualizer]:w-auto has-[.audiovisualizer]:px-3 has-[~_button]:rounded-r-none has-[~_button]:border-r-0 has-[~_button]:pr-2 has-[~_button]:pl-3"
       >
         {audioTrack && (

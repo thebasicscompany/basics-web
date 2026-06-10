@@ -58,24 +58,20 @@ export default async function HomePage() {
     ...recentSessions.filter((session) => !session.lessonId),
   ].slice(0, 4);
 
-  // Progress proxy until real progress tracking exists: lessons touched.
-  const lessonProgress = await db.session.groupBy({
-    by: ["courseId", "lessonId"],
+  // Real progress: lessons the learner has completed (demonstrated
+  // understanding), not just touched.
+  const completedRows = await db.lessonProgress.groupBy({
+    by: ["courseId"],
     where: {
       learnerId: context.learnerId,
-      lessonId: { not: null },
+      status: "completed",
       courseId: { in: yourCourses.map((course) => course.id) },
     },
+    _count: { lessonId: true },
   });
-  const touchedByCourse = new Map<string, number>();
-  for (const row of lessonProgress) {
-    if (row.courseId) {
-      touchedByCourse.set(
-        row.courseId,
-        (touchedByCourse.get(row.courseId) ?? 0) + 1,
-      );
-    }
-  }
+  const completedByCourse = new Map(
+    completedRows.map((row) => [row.courseId, row._count.lessonId]),
+  );
 
   const yourCourseIds = new Set(yourCourses.map((course) => course.id));
   const unenrolled = allCourses
@@ -169,12 +165,12 @@ export default async function HomePage() {
               <div className="divide-y">
                 {yourCourses.map((course) => {
                   const total = course.lessons.length;
-                  const touched = Math.min(
-                    touchedByCourse.get(course.id) ?? 0,
+                  const completed = Math.min(
+                    completedByCourse.get(course.id) ?? 0,
                     total,
                   );
                   const percent =
-                    total > 0 ? Math.round((touched / total) * 100) : 0;
+                    total > 0 ? Math.round((completed / total) * 100) : 0;
 
                   return (
                     <Link
@@ -192,7 +188,7 @@ export default async function HomePage() {
                         />
                       </span>
                       <span className="block text-xs text-muted-foreground">
-                        {touched} of {total} lessons started
+                        {completed} of {total} lessons completed
                       </span>
                     </Link>
                   );
