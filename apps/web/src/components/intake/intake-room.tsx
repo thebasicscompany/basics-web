@@ -76,6 +76,9 @@ export function IntakeRoom({
   const [attaching, setAttaching] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Stick-to-bottom: auto-scroll only while the user is pinned to the
+  // bottom, so scrolling up to reread isn't fought by streaming deltas.
+  const pinnedRef = useRef(true);
 
   const sendTurn = useCallback(
     async (body: TurnBody, displayText: string) => {
@@ -83,6 +86,8 @@ export function IntakeRoom({
       setError(null);
       setOptimisticText(displayText);
       setStreamingText("");
+      // Sending a message always snaps back to the bottom.
+      pinnedRef.current = true;
 
       try {
         const response = await fetch(`/api/sessions/${session.id}/turns`, {
@@ -212,8 +217,18 @@ export function IntakeRoom({
   }, [events]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+    if (pinnedRef.current) {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+    }
   }, [messages.length, streamingText, optimisticText]);
+
+  function handleScroll() {
+    const node = scrollRef.current;
+    if (node) {
+      pinnedRef.current =
+        node.scrollHeight - node.scrollTop - node.clientHeight < 32;
+    }
+  }
 
   async function attachFiles(files: FileList) {
     const list = Array.from(files);
@@ -266,7 +281,11 @@ export function IntakeRoom({
           </h1>
         </header>
 
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-5">
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="min-h-0 flex-1 overflow-y-auto px-5"
+        >
           <div className="flex flex-col py-4">
             {messages.length === 0 && !optimisticText && !busy ? (
               <div className="flex flex-1 items-center justify-center py-16">
