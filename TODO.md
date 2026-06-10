@@ -80,7 +80,7 @@ persist.ts   persistTurnEvents() — sequenced append (from web session-store)
       builder — currently two prompts that must agree but can drift
 - [x] Move tool *definitions* out of `apps/voice/src/tools.ts`; the voice
       worker keeps only LiveKit bindings, chat runtime can now get tools too
-- [ ] **Single-path Mermaid visuals** (the one deliberate behavior change in
+- [x] **Single-path Mermaid visuals** (the one deliberate behavior change in
       the tool move): `whiteboard_add_diagram` (Mermaid) becomes the *only*
       drawing tool, available to every kind/modality. Delete
       `whiteboard_add_shape` / `whiteboard_add_text` / `whiteboard_draw_path`
@@ -94,7 +94,7 @@ persist.ts   persistTurnEvents() — sequenced append (from web session-store)
       path in `tldraw-board.tsx`
 - [x] Rewire: web turn route + `turnStreamResponse` stay in web (transport);
       `apps/voice/src/main.ts` becomes connect + bind + run
-- [ ] **Verify: `smoke`, `smoke:chat`, `smoke:pages`, `smoke:uploads` pass**
+- [x] **Verify: `smoke`, `smoke:chat`, `smoke:pages`, `smoke:uploads` pass**
       — pure refactor except the deliberate Mermaid-only visuals change
       above (lesson smoke may need its whiteboard assertions updated)
 

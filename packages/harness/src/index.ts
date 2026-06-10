@@ -25,7 +25,6 @@ export {
 } from "./context";
 export { persistTurnEvents, type EventStoreContext } from "./persist";
 export {
-  SKETCH_DATA_TOPIC,
   TEACHING_STATE_DATA_TOPIC,
   TURN_INTENTS,
   TUTOR_TOOLS,

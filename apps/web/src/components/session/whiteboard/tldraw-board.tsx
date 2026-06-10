@@ -4,16 +4,13 @@ import { useCallback, useEffect, useRef } from "react";
 import {
   AssetRecordType,
   Box,
-  DefaultToolbar,
   Tldraw,
   b64Vecs,
   createShapeId,
-  renderPlaintextFromRichText,
   toRichText,
   type Editor,
   type TLComponents,
   type TLDefaultColorStyle,
-  type TLShape,
 } from "tldraw";
 import "tldraw/tldraw.css";
 import type { VisualAction, VisualPoint } from "@basics/contracts";
@@ -22,20 +19,10 @@ import type { VisualAction, VisualPoint } from "@basics/contracts";
 const STAGE_WIDTH = 1600;
 const STAGE_HEIGHT = 900;
 
-const SKETCH_DEBOUNCE_MS = 2000;
-
-/**
- * Vertical toolbar so the drawing tools sit on the right edge instead of
- * conflicting with the voice control bar at the bottom center. The
- * right-edge placement itself is done in CSS (see `.lesson-board` rules).
- */
-function VerticalToolbar() {
-  return <DefaultToolbar orientation="vertical" />;
-}
-
-/** Hide chrome the lesson doesn't need; keep the toolbar and style panel. */
-const drawModeComponents: TLComponents = {
-  Toolbar: VerticalToolbar,
+/** View-only chrome: the board renders agent-driven visuals, nothing else. */
+const readOnlyComponents: TLComponents = {
+  Toolbar: null,
+  StylePanel: null,
   MainMenu: null,
   PageMenu: null,
   NavigationPanel: null,
@@ -45,13 +32,6 @@ const drawModeComponents: TLComponents = {
   KeyboardShortcutsDialog: null,
   DebugMenu: null,
   DebugPanel: null,
-};
-
-/** View-only chrome: no drawing toolbar or style panel at all. */
-const readOnlyComponents: TLComponents = {
-  ...drawModeComponents,
-  Toolbar: null,
-  StylePanel: null,
 };
 
 const TLDRAW_COLORS: Array<{ name: TLDefaultColorStyle; rgb: [number, number, number] }> = [
@@ -99,25 +79,6 @@ function toStage(point: VisualPoint): { x: number; y: number } {
 
 const TUTOR_META = { source: "tutor" } as const;
 
-async function renderMermaidSvg(
-  source: string,
-): Promise<{ svg: string; width: number; height: number } | null> {
-  const mermaid = (await import("mermaid")).default;
-  mermaid.initialize({
-    startOnLoad: false,
-    securityLevel: "loose",
-    theme: "neutral",
-  });
-  try {
-    const id = `mmd_${crypto.randomUUID().replaceAll("-", "")}`;
-    const { svg } = await mermaid.render(id, source);
-    return measureSvg(svg);
-  } catch (error) {
-    console.warn("Failed to render mermaid diagram", error);
-    return null;
-  }
-}
-
 function measureSvg(
   svg: string,
 ): { svg: string; width: number; height: number } | null {
@@ -149,63 +110,151 @@ function measureSvg(
 
 type TldrawBoardProps = {
   actions: VisualAction[];
-  /**
-   * Whether the learner may draw. When false the board is read-only and the
-   * drawing toolbar is hidden; the tutor can still draw programmatically.
-   */
-  canDraw?: boolean;
-  /** Called with a plain-language description of the learner's own drawing. */
-  onSketch?: (description: string) => void;
 };
 
-export function TldrawBoard({
-  actions,
-  canDraw = false,
-  onSketch,
-}: TldrawBoardProps) {
+/**
+ * View-only whiteboard: replays `visual.*` session events. Mermaid diagrams
+ * become native, editable tldraw shapes via `@tldraw/mermaid`; legacy
+ * primitive events (shapes, labels, paths) from older sessions still render.
+ */
+export function TldrawBoard({ actions }: TldrawBoardProps) {
   const editorRef = useRef<Editor | null>(null);
   const appliedRef = useRef<Set<string>>(new Set());
-  const applyingRef = useRef(false);
   const queueRef = useRef<Promise<void>>(Promise.resolve());
-  const sketchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onSketchRef = useRef(onSketch);
-  const canDrawRef = useRef(canDraw);
-  useEffect(() => {
-    onSketchRef.current = onSketch;
-  }, [onSketch]);
 
-  // Toggle read-only mode with the agent-granted drawing permission.
-  useEffect(() => {
-    canDrawRef.current = canDraw;
-    const editor = editorRef.current;
-    if (!editor) {
-      return;
-    }
-    editor.updateInstanceState({ isReadonly: !canDraw });
-    if (!canDraw) {
-      editor.setCurrentTool("select");
-    }
-  }, [canDraw]);
-
-  /**
-   * Run an editor mutation while suppressing the learner-sketch listener and
-   * temporarily lifting read-only mode so the tutor can always draw.
-   */
-  const mutate = useCallback((editor: Editor, fn: () => void) => {
-    applyingRef.current = true;
-    const wasReadonly = editor.getInstanceState().isReadonly;
-    try {
-      if (wasReadonly) {
-        editor.updateInstanceState({ isReadonly: false });
-      }
-      editor.run(fn, { ignoreShapeLock: true });
-    } finally {
-      if (wasReadonly) {
+  /** Runs a (possibly async) editor mutation with read-only mode lifted. */
+  const mutate = useCallback(
+    async (editor: Editor, fn: () => unknown) => {
+      editor.updateInstanceState({ isReadonly: false });
+      try {
+        await fn();
+      } finally {
         editor.updateInstanceState({ isReadonly: true });
       }
-      applyingRef.current = false;
-    }
-  }, []);
+    },
+    [],
+  );
+
+  /** Places a static SVG document on the board as an image shape. */
+  const placeSvgDiagram = useCallback(
+    (
+      editor: Editor,
+      rendered: { svg: string; width: number; height: number },
+      action: Extract<VisualAction, { type: "visual.add_diagram" }>,
+      meta: Record<string, string>,
+    ) => {
+      const targetWidth = ((action.width ?? 50) / 100) * STAGE_WIDTH;
+      const targetHeight = targetWidth * (rendered.height / rendered.width);
+      const position = action.at
+        ? toStage(action.at)
+        : {
+            x: (STAGE_WIDTH - targetWidth) / 2,
+            y: STAGE_HEIGHT * 0.08,
+          };
+
+      const assetId = AssetRecordType.createId();
+      const src = `data:image/svg+xml;utf8,${encodeURIComponent(rendered.svg)}`;
+
+      editor.createAssets([
+        AssetRecordType.create({
+          id: assetId,
+          type: "image",
+          props: {
+            name: action.title ?? "diagram",
+            src,
+            w: rendered.width,
+            h: rendered.height,
+            mimeType: "image/svg+xml",
+            isAnimated: false,
+          },
+        }),
+      ]);
+      editor.createShape({
+        id: createShapeId(),
+        type: "image",
+        x: position.x,
+        y: position.y,
+        meta,
+        props: { assetId, w: targetWidth, h: targetHeight },
+      });
+    },
+    [],
+  );
+
+  /**
+   * Renders a Mermaid diagram as native tldraw shapes. Diagram families
+   * @tldraw/mermaid doesn't support yet fall back to a static SVG image.
+   */
+  const placeMermaidDiagram = useCallback(
+    async (
+      editor: Editor,
+      action: Extract<VisualAction, { type: "visual.add_diagram" }>,
+      meta: Record<string, string>,
+    ) => {
+      const { createMermaidDiagram } = await import("@tldraw/mermaid");
+
+      const position = action.at
+        ? toStage(action.at)
+        : { x: STAGE_WIDTH / 2, y: STAGE_HEIGHT * 0.45 };
+
+      const before = new Set(editor.getCurrentPageShapeIds());
+
+      await createMermaidDiagram(editor, action.source, {
+        blueprintRender: {
+          position,
+          centerOnPosition: !action.at,
+        },
+        onUnsupportedDiagram: async (svg) => {
+          const rendered = measureSvg(svg);
+          if (rendered) {
+            placeSvgDiagram(editor, rendered, action, meta);
+          }
+        },
+      });
+
+      // Attribute the new shapes to the tutor and place the optional title.
+      const created = editor
+        .getCurrentPageShapes()
+        .filter((shape) => !before.has(shape.id));
+
+      if (created.length > 0) {
+        editor.updateShapes(
+          created.map((shape) => ({
+            id: shape.id,
+            type: shape.type,
+            meta: { ...shape.meta, ...meta },
+          })),
+        );
+
+        if (action.title) {
+          let minX = Number.POSITIVE_INFINITY;
+          let minY = Number.POSITIVE_INFINITY;
+          for (const shape of created) {
+            const bounds = editor.getShapePageBounds(shape.id);
+            if (bounds) {
+              minX = Math.min(minX, bounds.x);
+              minY = Math.min(minY, bounds.y);
+            }
+          }
+          if (Number.isFinite(minX) && Number.isFinite(minY)) {
+            editor.createShape({
+              id: createShapeId(),
+              type: "text",
+              x: minX,
+              y: minY - 48,
+              meta,
+              props: {
+                richText: toRichText(action.title),
+                color: "black",
+                size: "m",
+              },
+            });
+          }
+        }
+      }
+    },
+    [placeSvgDiagram],
+  );
 
   const applyAction = useCallback(
     async (editor: Editor, action: VisualAction) => {
@@ -218,14 +267,32 @@ export function TldrawBoard({
         case "visual.clear_surface": {
           const ids = editor.getCurrentPageShapes().map((shape) => shape.id);
           if (ids.length > 0) {
-            mutate(editor, () => editor.deleteShapes(ids));
+            await mutate(editor, () => editor.deleteShapes(ids));
           }
           return;
         }
+        case "visual.add_diagram": {
+          if (action.format === "mermaid") {
+            await mutate(editor, () =>
+              placeMermaidDiagram(editor, action, meta),
+            );
+          } else {
+            const rendered = measureSvg(action.source);
+            if (!rendered) {
+              return;
+            }
+            await mutate(editor, () =>
+              placeSvgDiagram(editor, rendered, action, meta),
+            );
+          }
+          break;
+        }
+        // Legacy events from sessions recorded before Mermaid became the
+        // single drawing path; replayed so old boards still rehydrate.
         case "visual.draw_path": {
           const points = action.points.map(toStage);
           const origin = points[0];
-          mutate(editor, () =>
+          await mutate(editor, () =>
             editor.createShape({
               id: createShapeId(),
               type: "draw",
@@ -257,7 +324,7 @@ export function TldrawBoard({
           if (action.shape === "rectangle" || action.shape === "ellipse") {
             const w = ((action.width ?? 20) / 100) * STAGE_WIDTH;
             const h = ((action.height ?? 15) / 100) * STAGE_HEIGHT;
-            mutate(editor, () =>
+            await mutate(editor, () =>
               editor.createShape({
                 id: createShapeId(),
                 type: "geo",
@@ -276,7 +343,7 @@ export function TldrawBoard({
             const end = action.end
               ? toStage(action.end)
               : { x: origin.x + 160, y: origin.y };
-            mutate(editor, () =>
+            await mutate(editor, () =>
               editor.createShape({
                 id: createShapeId(),
                 type: "arrow",
@@ -297,7 +364,7 @@ export function TldrawBoard({
         }
         case "visual.add_text": {
           const at = toStage(action.at);
-          mutate(editor, () =>
+          await mutate(editor, () =>
             editor.createShape({
               id: createShapeId(),
               type: "text",
@@ -311,67 +378,6 @@ export function TldrawBoard({
               },
             }),
           );
-          break;
-        }
-        case "visual.add_diagram": {
-          const rendered =
-            action.format === "mermaid"
-              ? await renderMermaidSvg(action.source)
-              : measureSvg(action.source);
-          if (!rendered) {
-            return;
-          }
-
-          const targetWidth = ((action.width ?? 50) / 100) * STAGE_WIDTH;
-          const targetHeight = targetWidth * (rendered.height / rendered.width);
-          const position = action.at
-            ? toStage(action.at)
-            : {
-                x: (STAGE_WIDTH - targetWidth) / 2,
-                y: STAGE_HEIGHT * 0.08,
-              };
-
-          const assetId = AssetRecordType.createId();
-          const src = `data:image/svg+xml;utf8,${encodeURIComponent(rendered.svg)}`;
-
-          mutate(editor, () => {
-            editor.createAssets([
-              AssetRecordType.create({
-                id: assetId,
-                type: "image",
-                props: {
-                  name: action.title ?? "diagram",
-                  src,
-                  w: rendered.width,
-                  h: rendered.height,
-                  mimeType: "image/svg+xml",
-                  isAnimated: false,
-                },
-              }),
-            ]);
-            editor.createShape({
-              id: createShapeId(),
-              type: "image",
-              x: position.x,
-              y: position.y,
-              meta,
-              props: { assetId, w: targetWidth, h: targetHeight },
-            });
-            if (action.title) {
-              editor.createShape({
-                id: createShapeId(),
-                type: "text",
-                x: position.x,
-                y: position.y - 48,
-                meta,
-                props: {
-                  richText: toRichText(action.title),
-                  color: "black",
-                  size: "m",
-                },
-              });
-            }
-          });
           break;
         }
         case "visual.set_draw_mode":
@@ -388,7 +394,7 @@ export function TldrawBoard({
         });
       }
     },
-    [mutate],
+    [mutate, placeMermaidDiagram, placeSvgDiagram],
   );
 
   const applyNewActions = useCallback(
@@ -406,59 +412,22 @@ export function TldrawBoard({
     [applyAction],
   );
 
-  const describeSketch = useCallback((editor: Editor): string | null => {
-    const shapes = editor
-      .getCurrentPageShapes()
-      .filter((shape) => shape.meta?.source !== "tutor")
-      .slice(0, 24);
-    if (shapes.length === 0) {
-      return null;
-    }
-    return shapes
-      .map((shape) => describeShape(editor, shape))
-      .filter(Boolean)
-      .join("; ");
-  }, []);
-
   const handleMount = useCallback(
     (editor: Editor) => {
       editorRef.current = editor;
-      editor.updateInstanceState({ isReadonly: !canDrawRef.current });
+      editor.updateInstanceState({ isReadonly: true });
       editor.zoomToBounds(new Box(0, 0, STAGE_WIDTH, STAGE_HEIGHT), {
         inset: 32,
       });
 
       applyNewActions(editor, actions);
 
-      // Watch for learner-made changes and publish a debounced description.
-      const unlisten = editor.store.listen(
-        () => {
-          if (applyingRef.current || !onSketchRef.current) {
-            return;
-          }
-          if (sketchTimerRef.current) {
-            clearTimeout(sketchTimerRef.current);
-          }
-          sketchTimerRef.current = setTimeout(() => {
-            const description = describeSketch(editor);
-            if (description) {
-              onSketchRef.current?.(description);
-            }
-          }, SKETCH_DEBOUNCE_MS);
-        },
-        { scope: "document", source: "user" },
-      );
-
       return () => {
-        unlisten();
-        if (sketchTimerRef.current) {
-          clearTimeout(sketchTimerRef.current);
-        }
         editorRef.current = null;
       };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only; live updates flow through the effect below
-    [applyNewActions, describeSketch],
+    [applyNewActions],
   );
 
   useEffect(() => {
@@ -471,54 +440,10 @@ export function TldrawBoard({
   return (
     <div className="lesson-board relative h-full w-full">
       <Tldraw
-        components={canDraw ? drawModeComponents : readOnlyComponents}
+        components={readOnlyComponents}
         onMount={handleMount}
         options={{ maxPages: 1 }}
       />
     </div>
   );
-}
-
-function describeShape(editor: Editor, shape: TLShape): string | null {
-  const bounds = editor.getShapePageBounds(shape);
-  const where = bounds
-    ? ` near ${Math.round((bounds.midX / STAGE_WIDTH) * 100)}% across, ${Math.round(
-        (bounds.midY / STAGE_HEIGHT) * 100,
-      )}% down`
-    : "";
-
-  switch (shape.type) {
-    case "draw":
-      return `a freehand stroke${where}`;
-    case "geo": {
-      const geo = (shape.props as { geo?: string }).geo ?? "shape";
-      return `a ${geo}${where}`;
-    }
-    case "arrow":
-      return `an arrow${where}`;
-    case "line":
-      return `a line${where}`;
-    case "text": {
-      const richText = (shape.props as { richText?: unknown }).richText;
-      const text = richText
-        ? renderPlaintextFromRichText(
-            editor,
-            richText as Parameters<typeof renderPlaintextFromRichText>[1],
-          )
-        : "";
-      return text ? `text saying "${text}"${where}` : null;
-    }
-    case "note": {
-      const richText = (shape.props as { richText?: unknown }).richText;
-      const text = richText
-        ? renderPlaintextFromRichText(
-            editor,
-            richText as Parameters<typeof renderPlaintextFromRichText>[1],
-          )
-        : "";
-      return `a note${text ? ` saying "${text}"` : ""}${where}`;
-    }
-    default:
-      return `a ${shape.type}${where}`;
-  }
 }

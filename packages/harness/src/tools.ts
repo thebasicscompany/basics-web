@@ -7,7 +7,6 @@ export const WHITEBOARD_SURFACE_ID = "lesson-stage";
 /** LiveKit data-channel topics events are broadcast on (voice transport). */
 export const VISUAL_DATA_TOPIC = "basics.visual";
 export const TEACHING_STATE_DATA_TOPIC = "basics.teaching_state";
-export const SKETCH_DATA_TOPIC = "basics.sketch";
 
 /** Which data-channel topic a persisted event should be broadcast on. */
 export function topicForEventType(type: string): string {
@@ -60,12 +59,6 @@ const pointSchema = z.object({
   y: z.number().min(0).max(100).describe("Percent of canvas height, 0-100"),
 });
 
-const colorSchema = z
-  .string()
-  .regex(/^#[0-9A-Fa-f]{6}$/)
-  .optional()
-  .describe("Hex color like #2563eb");
-
 export const TURN_INTENTS = [
   "explain",
   "question",
@@ -101,82 +94,12 @@ export const updateTeachingState = defineTool({
   resultText: () => "Teaching state updated.",
 });
 
-export const whiteboardAddShape = defineTool({
-  name: "whiteboard_add_shape",
-  description:
-    "Add a shape to the shared whiteboard. Lines and arrows use origin and end; rectangles and ellipses use origin (top-left) with width and height.",
-  parameters: z.object({
-    shape: z.enum(["line", "arrow", "rectangle", "ellipse"]),
-    origin: pointSchema,
-    end: pointSchema.optional(),
-    // .positive() emits `exclusiveMinimum: true`, which OpenAI's schema
-    // validator rejects; use inclusive bounds instead.
-    width: z.number().min(1).max(100).optional(),
-    height: z.number().min(1).max(100).optional(),
-    color: colorSchema,
-  }),
-  toDrafts: (input) => [
-    {
-      type: "visual.add_shape",
-      surfaceId: WHITEBOARD_SURFACE_ID,
-      shape: input.shape,
-      origin: input.origin,
-      end: input.end,
-      width: input.width,
-      height: input.height,
-      style: input.color ? { color: input.color } : undefined,
-    },
-  ],
-  resultText: () => "Shape drawn.",
-});
-
-export const whiteboardAddText = defineTool({
-  name: "whiteboard_add_text",
-  description:
-    "Write a short text label on the shared whiteboard. Keep labels under six words.",
-  parameters: z.object({
-    at: pointSchema,
-    text: z.string().min(1).max(80),
-    color: colorSchema,
-  }),
-  toDrafts: (input) => [
-    {
-      type: "visual.add_text",
-      surfaceId: WHITEBOARD_SURFACE_ID,
-      at: input.at,
-      text: input.text,
-      style: input.color ? { color: input.color } : undefined,
-    },
-  ],
-  resultText: () => "Text added.",
-});
-
-export const whiteboardDrawPath = defineTool({
-  name: "whiteboard_draw_path",
-  description:
-    "Draw a freeform path (polyline) on the shared whiteboard, e.g. a curve, graph line, or annotation stroke.",
-  parameters: z.object({
-    points: z.array(pointSchema).min(2).max(64),
-    color: colorSchema,
-  }),
-  toDrafts: (input) => [
-    {
-      type: "visual.draw_path",
-      surfaceId: WHITEBOARD_SURFACE_ID,
-      points: input.points,
-      style: input.color ? { color: input.color } : undefined,
-    },
-  ],
-  resultText: () => "Path drawn.",
-});
-
 export const whiteboardAddDiagram = defineTool({
   name: "whiteboard_add_diagram",
   description: [
-    "Render a rich diagram on the shared whiteboard from Mermaid source.",
-    "Use this for structured visuals that are tedious to build from primitives:",
-    "flowcharts, sequence diagrams, state machines, tree/graph structures, pie charts, timelines.",
-    "Prefer simple primitives (shapes, arrows, labels) for quick sketches; use diagrams for structure.",
+    "Draw on the shared whiteboard by rendering a diagram from Mermaid source.",
+    "This is the only drawing tool: use it for flowcharts, sequence diagrams,",
+    "state machines, tree/graph structures, mind maps, and timelines.",
   ].join(" "),
   parameters: z.object({
     mermaid: z
@@ -208,29 +131,6 @@ export const whiteboardAddDiagram = defineTool({
     },
   ],
   resultText: () => "Diagram rendered on the whiteboard.",
-});
-
-export const setLearnerDrawing = defineTool({
-  name: "set_learner_drawing",
-  description: [
-    "Enable or disable the learner's whiteboard drawing controls.",
-    "Enable when the learner asks to show, draw, or point at something, or when you want them to sketch an answer.",
-    "Disable when the drawing exercise is finished and you are moving on.",
-  ].join(" "),
-  parameters: z.object({
-    enabled: z.boolean(),
-  }),
-  toDrafts: (input) => [
-    {
-      type: "visual.set_draw_mode",
-      surfaceId: WHITEBOARD_SURFACE_ID,
-      enabled: input.enabled,
-    },
-  ],
-  resultText: (input) =>
-    input.enabled
-      ? "Drawing controls are now visible to the learner."
-      : "Drawing controls are now hidden.",
 });
 
 export const whiteboardClear = defineTool({
@@ -314,11 +214,7 @@ export const reachCheckpoint = defineTool({
 /** Tools shared by the tutoring kinds (lesson and chat). */
 export const TUTOR_TOOLS: ToolDefinition[] = [
   updateTeachingState,
-  whiteboardAddShape,
-  whiteboardAddText,
-  whiteboardDrawPath,
   whiteboardAddDiagram,
-  setLearnerDrawing,
   whiteboardClear,
   recordMastery,
   reachCheckpoint,

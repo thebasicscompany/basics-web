@@ -10,12 +10,7 @@ import {
   useSessionContext,
   useSessionMessages,
 } from "@livekit/components-react";
-import {
-  ArrowLeftIcon,
-  ChatTextIcon,
-  PencilSimpleIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+import { ArrowLeftIcon, ChatTextIcon, XIcon } from "@phosphor-icons/react";
 import type { Lesson, Session, SessionEvent } from "@basics/contracts";
 import { AgentChatTranscript } from "@/components/agents-ui/agent-chat-transcript";
 import { AgentControlBar } from "@/components/agents-ui/agent-control-bar";
@@ -41,7 +36,6 @@ const TldrawBoard = dynamic(
 
 const VISUAL_DATA_TOPIC = "basics.visual";
 const TEACHING_STATE_DATA_TOPIC = "basics.teaching_state";
-const SKETCH_DATA_TOPIC = "basics.sketch";
 
 type LessonRoomProps = {
   session: Session;
@@ -137,37 +131,6 @@ function LessonStage({
   const visualActions = useMemo(() => events.filter(isVisualAction), [events]);
   const teachingState = useMemo(() => latestTeachingState(events), [events]);
 
-  // The tutor grants/revokes the learner's drawing controls via tool call.
-  const canDraw = useMemo(() => {
-    for (let index = events.length - 1; index >= 0; index -= 1) {
-      const event = events[index];
-      if (event.type === "visual.set_draw_mode") {
-        return event.enabled;
-      }
-    }
-    return false;
-  }, [events]);
-
-  // Send the agent a plain-language description of what the learner drew so
-  // it can react to the sketch on their next turn.
-  const handleSketch = useCallback(
-    (description: string) => {
-      const localParticipant = session.room.localParticipant;
-      if (!session.isConnected || !localParticipant) {
-        return;
-      }
-      void localParticipant
-        .publishData(
-          new TextEncoder().encode(JSON.stringify({ description })),
-          { reliable: true, topic: SKETCH_DATA_TOPIC },
-        )
-        .catch(() => {
-          // Sketch context is best-effort.
-        });
-    },
-    [session.room, session.isConnected],
-  );
-
   async function startLesson() {
     setIsStarting(true);
     setStartError(null);
@@ -188,11 +151,7 @@ function LessonStage({
     <section className="bg-background relative h-svh w-full overflow-hidden">
       {/* Whiteboard fills the stage */}
       <div className="absolute inset-0">
-        <TldrawBoard
-          actions={visualActions}
-          canDraw={canDraw}
-          onSketch={handleSketch}
-        />
+        <TldrawBoard actions={visualActions} />
       </div>
 
       {/* Top bar */}
@@ -220,12 +179,6 @@ function LessonStage({
         </div>
 
         <div className="pointer-events-auto flex items-center gap-2">
-          {canDraw && session.isConnected ? (
-            <Badge variant="secondary" className="gap-1">
-              <PencilSimpleIcon className="size-3" />
-              You can draw
-            </Badge>
-          ) : null}
           {session.isConnected ? (
             <div className="bg-card/85 flex h-8 items-center gap-1.5 rounded-lg border px-2.5 backdrop-blur">
               <span

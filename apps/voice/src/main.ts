@@ -12,11 +12,10 @@ import {
 } from "@livekit/agents";
 import * as livekit from "@livekit/agents-plugin-livekit";
 import * as silero from "@livekit/agents-plugin-silero";
-import { RoomEvent, type Room } from "@livekit/rtc-node";
+import type { Room } from "@livekit/rtc-node";
 import { config as loadEnv } from "dotenv";
 import { createPrismaClient, type BasicsPrismaClient } from "@basics/db";
 import {
-  SKETCH_DATA_TOPIC,
   getKindConfig,
   loadSessionContext,
   persistTurnEvents,
@@ -95,28 +94,6 @@ function bindLiveKitTools(
   return tools;
 }
 
-/**
- * Voice agent that augments each completed user turn with the learner's most
- * recent whiteboard sketch (published by the client on the sketch data topic),
- * so the tutor can react to what the learner drew.
- */
-class TutorAgent extends voice.Agent {
-  latestSketch: string | null = null;
-  private deliveredSketch: string | null = null;
-
-  override async onUserTurnCompleted(
-    _chatCtx: llmTypes.ChatContext,
-    newMessage: llmTypes.ChatMessage,
-  ): Promise<void> {
-    if (this.latestSketch && this.latestSketch !== this.deliveredSketch) {
-      newMessage.content.push(
-        `[The learner's current whiteboard sketch: ${this.latestSketch}]`,
-      );
-      this.deliveredSketch = this.latestSketch;
-    }
-  }
-}
-
 export default defineAgent<{ vad: silero.VAD }>({
   prewarm: async (proc: JobProcess) => {
     proc.userData.vad = await silero.VAD.load();
@@ -162,30 +139,10 @@ export default defineAgent<{ vad: silero.VAD }>({
       },
     });
 
-    const agent = new TutorAgent({
+    const agent = new voice.Agent({
       instructions: config.buildPrompt(sessionContext, "voice"),
       tools,
     });
-
-    const decoder = new TextDecoder();
-    ctx.room.on(
-      RoomEvent.DataReceived,
-      (payload, _participant, _kind, topic) => {
-        if (topic !== SKETCH_DATA_TOPIC) {
-          return;
-        }
-        try {
-          const message = JSON.parse(decoder.decode(payload)) as {
-            description?: string;
-          };
-          if (message.description) {
-            agent.latestSketch = message.description;
-          }
-        } catch {
-          // Ignore malformed sketch payloads.
-        }
-      },
-    );
 
     const voiceSession = new voice.AgentSession({
       stt: new inference.STT({ model: "deepgram/nova-3", language: "multi" }),

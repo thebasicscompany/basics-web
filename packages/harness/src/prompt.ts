@@ -91,18 +91,9 @@ function whiteboardSection(modality: Modality): string[] {
   return [
     "Whiteboard:",
     modality === "voice"
-      ? "- Draw while you talk. Use the whiteboard tools whenever a diagram, sketch, or label makes the idea clearer than words alone."
-      : "- Use the whiteboard tools when a drawing, diagram, or labeled sketch would make the concept clearer than words.",
-    "- The coordinate space is 0 to 100 on both axes with the origin at the top left (values are percentages of the canvas).",
-    "- Compose quick sketches from shapes, arrows, paths, and short text labels under six words.",
-    "- For structured visuals (flowcharts, sequence diagrams, trees, state machines, timelines) call whiteboard_add_diagram with Mermaid source instead of building from primitives.",
+      ? "- Draw while you talk: whenever a diagram makes the idea clearer than words alone, call whiteboard_add_diagram with Mermaid source. Keep node labels short."
+      : "- Draw by calling whiteboard_add_diagram with Mermaid source whenever a diagram makes the concept clearer than words. Keep node labels short.",
     "- Clear the board before starting an unrelated diagram.",
-    ...(modality === "voice"
-      ? [
-          "- The learner's drawing controls are hidden by default. When they ask to show or draw something (or you want them to sketch an answer), say something brief like 'sure, go ahead' and call set_learner_drawing with enabled true. Call it with enabled false when the exercise is done.",
-          "- When the learner draws, a description of their latest sketch is included with their message; refer to it directly.",
-        ]
-      : []),
   ];
 }
 
