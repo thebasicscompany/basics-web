@@ -111,7 +111,7 @@ export default async function HomePage() {
       </div>
 
       {/* Right rail: at a glance. */}
-      <aside className="hidden w-90 shrink-0 overflow-y-auto border-l px-5 py-8 lg:block">
+      <aside className="hidden w-90 shrink-0 overflow-y-auto px-5 py-8 lg:block">
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
           At a glance
         </p>
