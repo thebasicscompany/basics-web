@@ -7,9 +7,11 @@ import {
   useRef,
   useState,
 } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowUpIcon,
+  CaretLeftIcon,
   CircleNotchIcon,
   GraduationCapIcon,
   PaperclipIcon,
@@ -167,9 +169,11 @@ export function IntakeRoom({
 
     const pending = takePendingMessage(session.id);
     if (pending) {
-      // Deferred so the auto-send's state updates don't run inside the effect.
-      const timeout = setTimeout(() => void sendTurn({ text: pending }, pending), 0);
-      return () => clearTimeout(timeout);
+      // Deferred so the auto-send's state updates don't run inside the
+      // effect. Deliberately not cancelled on cleanup: StrictMode's mount
+      // cycle would kill the send after the message was already taken out
+      // of sessionStorage.
+      setTimeout(() => void sendTurn({ text: pending }, pending), 0);
     }
   }, [session.id, sendTurn]);
 
@@ -275,9 +279,18 @@ export function IntakeRoom({
     <div className="flex h-svh min-h-0">
       <div className="flex min-h-0 w-full max-w-130 flex-col border-r">
         <header className="border-b px-5 py-3">
-          <p className="text-xs text-muted-foreground">New course</p>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <CaretLeftIcon className="size-3" />
+            Home
+          </Link>
           <h1 className="truncate font-heading text-base font-semibold tracking-tight">
-            {session.topic ?? "What do you want to learn?"}
+            {session.topic ??
+              messages.find((message) => message.role === "user")?.text ??
+              optimisticText ??
+              "What do you want to learn?"}
           </h1>
         </header>
 
